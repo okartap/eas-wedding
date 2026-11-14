@@ -49,7 +49,9 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
   - **Ver todos los proveedores**: bajo el desplegable, el enlace **«Ver todas las categorías»** muestra toda la lista agrupada por categoría, por si un proveedor está guardado en otra.
   - Las categorías de la lista de la boda ya están en Proveedores (se añadieron Restaurantes, Montaje y escenarios, Joyería, Calzado, Mesa glitter y Recena). Se pueden renombrar en Proveedores → Categorías.
   - **Si algo falla, la app avisa y no lo marca**: no se ha elegido proveedor, el importe no es un número válido o el teléfono parece incompleto.
+  - **Importe por personas**: en **Restaurante, Catering y Recena** se apunta el **precio del menú de adultos y de niños** y el **número de adultos y de niños**; la app calcula el total sola, y hay un campo opcional «Otros importes» (alquiler de sala, extras). En **Maquilladora y Peluquera** se apunta el precio de la novia y el de las acompañantes con su número. El resto de proveedores llevan un único importe.
   - Pulsar uno contratado permite **editar sus datos** o **«Quitar como contratado»** (pide confirmación y conserva los datos).
+- **Total contratado**: encima de la lista de proveedores sale **«Total contratado · X €»**, con la suma de los importes de los proveedores contratados. Al pulsarlo se despliega el **importe de cada uno** (en Restaurante, Catering, Recena, Maquilladora y Peluquera, con el desglose por personas). La suma usa los importes tal como se escribieron: conviene apuntarlos todos con IVA o todos sin IVA.
 - Los hitos de cada servicio se crean solos (20 para Integral, 8 para Día B) y aparecen en la agenda. Las reuniones y visitas de esos hitos ya vienen con su tipo (Reunión/cita o Visita/prueba).
 - Botón **«Crear boda de ejemplo»** en Ajustes para practicar; se borra como cualquier boda.
 

@@ -369,6 +369,30 @@ function viewBodas(v) {
 }
 
 let bodaProvOpen = false;
+const MENU2 = [['Menú adultos (€/persona)', 'Nº de adultos', 'adultos'], ['Menú niños (€/persona)', 'Nº de niños', 'niños']];
+const ACOMP2 = [['Precio novia (€)', 'Nº de novias', 'novia'], ['Precio acompañantes (€/persona)', 'Nº de acompañantes', 'acompañantes']];
+const PERSONA_CFG = { Restaurante: MENU2, Catering: MENU2, Recena: MENU2, Maquilladora: ACOMP2, Peluquera: ACOMP2 };
+const PERSONA = Object.keys(PERSONA_CFG);
+const numP = v => { const n = parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; };
+const imp0 = x => numP(x && x.importe);
+const detPersona = (c, x) => {
+  const cf = PERSONA_CFG[c], t = [];
+  if (numP(x.nAd)) t.push(numP(x.nAd).toLocaleString('de-DE') + ' ' + cf[0][2] + ' × ' + fmtMoney(numP(x.pAd)));
+  if (numP(x.nNi)) t.push(numP(x.nNi).toLocaleString('de-DE') + ' ' + cf[1][2] + ' × ' + fmtMoney(numP(x.pNi)));
+  if (numP(x.extra)) t.push('otros ' + fmtMoney(numP(x.extra)));
+  return t.join(' + ');
+};
+let bodaTotOpen = false;
+function totalBlock(b) {
+  const P = b.provs || {}, on = PROV_BODA.filter(c => (P[c] || {}).on);
+  if (!on.length) return '';
+  const tot = on.reduce((t, c) => t + imp0(P[c]), 0);
+  return `<details class="dgroup" ${bodaTotOpen ? 'open' : ''} ontoggle="bodaTotOpen=this.open"><summary class="group">Total contratado · ${esc(fmtMoney(tot) || '0 €')}</summary>
+    <div class="card">${on.map(c => { const x = P[c], d = PERSONA.includes(c) ? detPersona(c, x) : ''; return `<div class="kv"><span>${esc(c)}${d ? ' · ' + esc(d) : ''}</span><span>${imp0(x) ? esc(fmtMoney(imp0(x))) : 'sin importe'}</span></div>`; }).join('')}
+    <div class="kv"><span><b>Total</b></span><span><b>${esc(fmtMoney(tot) || '0 €')}</b></span></div></div>
+    <p class="hint" style="text-align:center">Suma de los importes apuntados en cada proveedor contratado, tal como se escribieron (con o sin IVA).</p>
+  </details>`;
+}
 function provBlock(b) {
   const P = b.provs || {}, n = PROV_BODA.filter(c => (P[c] || {}).on).length;
   return `<details class="dgroup" ${bodaProvOpen ? 'open' : ''} ontoggle="bodaProvOpen=this.open"><summary class="group">Proveedores · ${n} de ${PROV_BODA.length} contratados</summary>
@@ -394,11 +418,17 @@ function provBodaForm(bid, i, opt = {}) {
       <label class="f"><span>Proveedor</span><select name="prov" id="pvsel"></select></label>
       <p class="hint" style="text-align:center;margin:-4px 0 10px" id="pvhint"></p>
       <label class="f"><span>Teléfono o contacto</span><input name="tel" value="${esc(x.tel || '')}"></label>
-      <label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${esc(x.importe || '')}" placeholder="Opcional"></label>
+      ${PERSONA.includes(c) ? `<div class="two"><label class="f"><span>${PERSONA_CFG[c][0][0]}</span><input name="pAd" inputmode="decimal" value="${esc(x.pAd || '')}"></label><label class="f"><span>${PERSONA_CFG[c][0][1]}</span><input name="nAd" inputmode="numeric" value="${esc(x.nAd || '')}"></label></div>
+      <div class="two"><label class="f"><span>${PERSONA_CFG[c][1][0]}</span><input name="pNi" inputmode="decimal" value="${esc(x.pNi || '')}"></label><label class="f"><span>${PERSONA_CFG[c][1][1]}</span><input name="nNi" inputmode="numeric" value="${esc(x.nNi || '')}"></label></div>
+      <label class="f"><span>Otros importes (€, opcional)</span><input name="extra" inputmode="decimal" value="${esc(x.extra || '')}" placeholder="Alquiler de sala, extras…"></label>
+      <p class="hint" style="text-align:center;margin:0 0 10px" id="ptot"></p>`
+      : `<label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${esc(x.importe || '')}" placeholder="Opcional"></label>`}
       <label class="f"><span>Notas</span><textarea name="notas">${esc(x.notas || '')}</textarea></label>
       <div class="btns"><button class="btn" type="submit">${x.on ? 'Guardar' : 'Guardar y marcar contratado'}</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div>
       ${x.on ? `<div class="btns"><button class="btn danger sm" type="button" id="pquit">Quitar como contratado</button></div>` : ''}
     </form>`);
+  const persona = PERSONA.includes(c), calcP = f => numP(f.pAd) * numP(f.nAd) + numP(f.pNi) * numP(f.nNi) + numP(f.extra);
+  if (persona) { const upd = () => { const f = Object.fromEntries(new FormData($('#pbf', s))); $('#ptot', s).innerHTML = 'Total de ' + esc(c.toLowerCase()) + ': <b>' + esc(fmtMoney(calcP(f)) || '0 €') + '</b>'; }; $('#pbf', s).addEventListener('input', upd); upd(); }
   const sel = $('#pvsel', s), hint = $('#pvhint', s); let all = !catOk || c === 'Otros', prev = sel0;
   const fill = () => {
     const list = db.proveedores.slice().sort((p, q) => (p.nombre || '').localeCompare(q.nombre || '', 'es'));
@@ -428,10 +458,18 @@ function provBodaForm(bid, i, opt = {}) {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
     const pr = provById(f.prov), nombre = pr ? pr.nombre : (f.prov === '__cur' ? x.nombre : '');
     if (!nombre) { toast('Elige un proveedor de la lista: no se ha marcado'); sel.focus(); return; }
-    let imp = '';
-    if (f.importe) { imp = parseFloat(f.importe.replace(/\./g, '').replace(',', '.')); if (isNaN(imp) || imp < 0) { toast('El importe no es válido: no se ha marcado'); e.target.importe.focus(); return; } }
+    let imp = '', extra = {};
+    if (persona) {
+      const cf = PERSONA_CFG[c];
+      for (const [k, l] of [['pAd', cf[0][0]], ['nAd', cf[0][1]], ['pNi', cf[1][0]], ['nNi', cf[1][1]], ['extra', 'Otros importes']]) {
+        if (f[k] && (isNaN(parseFloat(f[k].replace(/\./g, '').replace(',', '.'))) || numP(f[k]) < 0)) { toast('Revisa «' + l + '»: no es un número válido. No se ha marcado'); e.target[k].focus(); return; }
+      }
+      if ((numP(f.nAd) && !numP(f.pAd)) || (numP(f.pAd) && !numP(f.nAd))) { toast('Faltan el precio o el número en «' + cf[0][2] + '». No se ha marcado'); return; }
+      if ((numP(f.nNi) && !numP(f.pNi)) || (numP(f.pNi) && !numP(f.nNi))) { toast('Faltan el precio o el número en «' + cf[1][2] + '». No se ha marcado'); return; }
+      extra = { pAd: f.pAd, nAd: f.nAd, pNi: f.pNi, nNi: f.nNi, extra: f.extra }; imp = calcP(f);
+    } else if (f.importe) { imp = parseFloat(f.importe.replace(/\./g, '').replace(',', '.')); if (isNaN(imp) || imp < 0) { toast('El importe no es válido: no se ha marcado'); e.target.importe.focus(); return; } }
     if (f.tel && f.tel.replace(/\D/g, '').length < 6 && /^[\d\s+()-]+$/.test(f.tel)) { toast('El teléfono parece incompleto: no se ha marcado'); e.target.tel.focus(); return; }
-    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, importe: imp, notas: f.notas };
+    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, importe: imp, notas: f.notas, ...extra };
     log('Marcó «' + c + '» como contratado en la boda de ' + coupleName(b) + ' (' + nombre + ')'); save(); closeSheet(); bodaProvOpen = true; refresh(); toast(c + ' marcado como contratado');
   });
   const q = $('#pquit', s);
@@ -491,7 +529,7 @@ function viewBoda(v, id) {
     <div class="countdown">${esc(b.fecha ? fmtDate(b.fecha) : 'Fecha por definir')}${cd ? ' · ' + cd : ''}</div>
     <div class="center" style="margin:10px 0"><span class="tag dark">${esc(b.servicio || SERV_DEF)}</span> <span class="tag">${esc(b.estado || 'Consulta')}</span></div>
     <div class="card">${kv('Ceremonia', b.ceremonia)}${kv('Lugar de la ceremonia', b.lugarCer ? b.lugarCer + (b.horaCer ? ' · ' + b.horaCer + ' h' : '') : (b.horaCer ? b.horaCer + ' h' : ''))}${kv('Celebración', b.lugar ? b.lugar + (b.horaCel ? ' · ' + b.horaCel + ' h' : '') : (b.horaCel ? b.horaCel + ' h' : ''))}${kv('Invitados', b.invitados)}${kv('Teléfono 1', b.tel1 ?? b.tel)}${kv('Teléfono 2', b.tel2)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
-    ${provBlock(b)}
+    ${totalBlock(b)}${provBlock(b)}
     <div class="btns"><button class="btn ghost sm" data-act="editBoda" data-id="${id}">Editar</button><button class="btn danger sm" data-act="delBoda" data-id="${id}">Eliminar</button></div>
     <h2>Contratos</h2>${cs.length ? cs.map(contratoRow).join('') : '<div class="empty" style="padding:10px">Sin contratos</div>'}
     <div class="btns"><a class="btn sm" href="#contrato/nuevo/${id}">+ Nuevo contrato</a></div>
