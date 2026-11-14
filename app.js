@@ -214,8 +214,7 @@ function viewInicio(v) {
   } else body = calendarHTML();
 
   v.innerHTML = `
-    <div class="center"><img class="logo" src="${LOGO}" alt="Ea’s Wedding" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{textContent:'Ea’s Wedding'}))"></div>
-    <p class="sub">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
+    <p class="sub" style="margin-top:6px">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
     <p class="hint" style="margin:0 0 12px">Sesión de <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''} · <span data-act="logout" style="text-decoration:underline;cursor:pointer">Cerrar sesión</span></p>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}

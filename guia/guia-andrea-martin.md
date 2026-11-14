@@ -89,6 +89,8 @@ Un punto pequeño arriba a la derecha (frente al interruptor de modo claro/oscur
 - **Ámbar parpadeante**: actualizando o subiendo un archivo a Drive. Esperar a que vuelva a verde.
 
 ## 10. Aspecto: modo claro y oscuro
+
+- **Logo de fondo**: el logo de Ea’s Wedding aparece grande y muy suave como **fondo fijo** de toda la pantalla (también en modo oscuro). El texto y las tarjetas se desplazan por encima sin moverlo. Ya no hay logo grande arriba en Inicio.
 - Arriba a la **izquierda**, frente al punto verde, hay un **sol o una luna con un pequeño interruptor**. Se toca y la app cambia al momento entre **modo claro** y **modo oscuro**. Cada móvil recuerda su elección.
 - Por defecto la app es siempre **clara**, con los colores del logo y la web de Ea’s Wedding (crema, marrón y rosa), aunque el iPhone esté en modo oscuro. El modo oscuro es para cuando haya poca luz o no se vea bien.
 - El **icono de la pantalla de inicio** lleva el logo original sobre fondo crema. Si cambia, hay que quitar la app de la pantalla de inicio y volver a añadirla desde Safari.
