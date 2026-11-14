@@ -916,9 +916,11 @@ function tarifaHTML(t) {
   const arch = t.archivo ? `<button class="btn ghost sm" data-act="openArch" data-id="${t.id}">Abrir ${esc(t.archivo.nombre)}</button>` : '';
   const did = t.driveId || ((t.enlace || '').match(/\/d\/([\w-]{10,})/) || [])[1] || '';
   const enl = t.enlace ? (did ? `<button class="btn ghost sm" data-act="verDrive" data-id="${t.id}">Ver dosier aquí</button><a class="btn ghost sm" href="${esc(webUrl(t.enlace))}" target="_blank" rel="noopener">Abrir en Drive</a>` : `<a class="btn ghost sm" href="${esc(webUrl(t.enlace))}" target="_blank" rel="noopener">Abrir enlace</a>`) : '';
-  return `<div class="card"><div class="kv"><span>${esc(fmtDate(t.fecha))}</span><span><b>${t.importe != null && t.importe !== '' ? esc(fmtMoney(+t.importe)) : '—'}</b></span></div>
-    <div style="margin:4px 0">${esc(t.concepto || '')}</div>${t.nota ? `<div class="hint" style="text-align:left;white-space:pre-wrap">${esc(t.nota)}</div>` : ''}
-    <div class="btns" style="margin:8px 0 0;justify-content:flex-start">${arch}${enl}<button class="btn ghost sm" data-act="editTarifa" data-id="${t.id}">Editar</button><button class="btn danger sm" data-act="delTarifa" data-id="${t.id}">Borrar</button></div></div>`;
+  const imp = t.importe != null && t.importe !== '' ? esc(fmtMoney(+t.importe)) : '';
+  return `<div class="card" style="text-align:center"><div class="hint" style="margin:0">${esc(fmtDate(t.fecha))}</div>
+    <div style="margin:6px 0 2px;font-size:17px"><b>${esc(t.concepto || '')}</b></div>${imp ? `<div style="font-size:20px;margin:2px 0 6px"><b>${imp}</b></div>` : ''}${t.nota ? `<div class="hint" style="white-space:pre-wrap">${esc(t.nota)}</div>` : ''}
+    <div class="btns" style="margin:10px 0 0;justify-content:center">${arch}${enl}</div>
+    <div class="btns" style="margin:8px 0 0;justify-content:center"><button class="btn ghost sm" data-act="editTarifa" data-id="${t.id}">Editar</button><button class="btn danger sm" data-act="delTarifa" data-id="${t.id}">Borrar</button></div></div>`;
 }
 function viewProveedor(v, id) {
   const p = provById(id); if (!p) { location.hash = '#proveedores'; return; }
