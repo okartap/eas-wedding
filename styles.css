@@ -127,3 +127,10 @@ canvas.sig{width:100%;height:170px;background:var(--card);border:1px dashed var(
 .tag.dark{border-color:var(--rose);color:#fff}
 .hist{font-size:13.5px;padding:8px 0;border-bottom:1px solid var(--line)}
 .hist b{font-weight:500}.hist span{display:block;color:var(--muted);font-size:12px}
+
+/* añadido rápido y proveedores */
+.quick{display:flex;gap:8px;margin:0 0 14px}
+.quick input{flex:1}
+#nav a{letter-spacing:.02em;font-size:10.5px}
+#nav a span{white-space:nowrap}
+details>summary::-webkit-details-marker{display:none}

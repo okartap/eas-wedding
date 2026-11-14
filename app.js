@@ -104,7 +104,7 @@ const servicioTexto = n => { const sv = SERVICIOS[n] || SERVICIOS[SERV_DEF]; ret
 
 /* ---------- Datos ---------- */
 function defaults() {
-  return { v: 1, profile: { marca: 'Ea’s Wedding' }, bodas: [], tareas: [], contratos: [], notas: [], historial: [],
+  return { v: 1, profile: { marca: 'Ea’s Wedding' }, bodas: [], tareas: [], contratos: [], notas: [], historial: [], proveedores: [], tarifas: [],
     plantillas: [{ id: 'base', nombre: 'Servicios de wedding planner', texto: TPL_BASE }] };
 }
 let db;
@@ -115,7 +115,7 @@ function load() {
 function localSave() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('No se pudo guardar (almacenamiento lleno)'); } }
 function save() { localSave(); Sync.push(); }
 load();
-db.historial ||= [];
+db.historial ||= []; db.proveedores ||= []; db.tarifas ||= [];
 function currentUser() { const u = localStorage.getItem('eas.user'); return USERS.includes(u) ? u : 'Andrea'; }
 function log(texto) { db.historial.push({ id: uid(), fecha: new Date().toISOString(), usuario: currentUser(), texto }); if (db.historial.length > 400) db.historial = db.historial.slice(-300); }
 
@@ -153,10 +153,10 @@ let agendaMode = 'lista', showDone = false, calMonth = todayISO().slice(0, 7), s
 function route() {
   const h = (location.hash || '#inicio').slice(1);
   const [name, a, b] = h.split('/');
-  const tab = { inicio: 'inicio', agenda: 'inicio', bodas: 'bodas', boda: 'bodas', contratos: 'contratos', contrato: 'contratos', plantilla: 'contratos', ajustes: 'ajustes' }[name] || 'inicio';
+  const tab = { inicio: 'inicio', agenda: 'inicio', bodas: 'bodas', boda: 'bodas', contratos: 'contratos', contrato: 'contratos', plantilla: 'contratos', proveedores: 'proveedores', proveedor: 'proveedores', ajustes: 'ajustes' }[name] || 'inicio';
   $$('#nav a').forEach(x => x.classList.toggle('on', x.dataset.tab === tab));
   const v = $('#view');
-  const views = { inicio: viewInicio, agenda: viewInicio, bodas: viewBodas, boda: viewBoda, contratos: viewContratos, contrato: viewContrato, plantilla: viewPlantilla, ajustes: viewAjustes };
+  const views = { inicio: viewInicio, agenda: viewInicio, bodas: viewBodas, boda: viewBoda, contratos: viewContratos, contrato: viewContrato, plantilla: viewPlantilla, proveedores: viewProveedores, proveedor: viewProveedor, ajustes: viewAjustes };
   (views[name] || viewInicio)(v, a, b);
   window.scrollTo(0, 0);
 }
@@ -178,7 +178,7 @@ function allItems() {
 }
 function rowHTML(it) {
   const b = it.bodaId ? bodaById(it.bodaId) : null;
-  const sub = [it.hora, it.kind === 'b' ? '' : (b ? coupleName(b) : ''), it.asignado && it.asignado !== 'Ambos' ? it.asignado : '', it.tipo === 'pago' ? 'Pago' : it.tipo === 'cita' ? 'Cita' : ''].filter(Boolean).join(' · ');
+  const sub = [it.hora, it.kind === 'b' ? '' : (b ? coupleName(b) : ''), it.asignado && it.asignado !== 'Ambos' ? it.asignado : '', it.tipo === 'pago' ? 'Pago' : it.tipo === 'cita' ? 'Cita' : '', phoneLine(it)].filter(Boolean).join(' · ');
   if (it.kind === 'b') return `<div class="row boda" data-act="openBoda" data-id="${it.bodaId}"><div class="main"><div class="t">${esc(it.titulo)}</div><div class="s">${esc(fmtDate(it.fecha, { weekday: 'long', day: 'numeric', month: 'long' }))}</div></div></div>`;
   return `<div class="row ${it.hecha ? 'done' : ''}" data-act="editTask" data-id="${it.id}">
     <button class="chk ${it.hecha ? 'on' : ''}" data-act="toggleTask" data-id="${it.id}" aria-label="Completar"></button>
@@ -212,6 +212,8 @@ function viewInicio(v) {
     <p class="sub">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
     <div class="seg" style="margin-bottom:10px">${USERS.map(u => `<button class="${currentUser() === u ? 'on' : ''}" data-act="setUser" data-id="${u}">${u}</button>`).join('')}</div>
     <p class="hint" style="margin-top:0">Usuario actual: <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''}</p>
+    <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
+    ${pendBanner()}
     ${notasHTML().replace('margin-top:26px','margin-top:4px;margin-bottom:18px')}
     <div class="seg"><button class="${agendaMode === 'lista' ? 'on' : ''}" data-act="agendaMode" data-id="lista">Lista</button><button class="${agendaMode === 'mes' ? 'on' : ''}" data-act="agendaMode" data-id="mes">Mes</button></div>
     ${body}
@@ -267,7 +269,9 @@ function notaForm(n) {
 }
 
 /* ---------- Tareas ---------- */
+let phoneAfter = false;
 function taskForm(t = {}) {
+  const otro = USERS.find(u => u !== currentUser());
   const s = openSheet(`<h3>${t.id ? 'Editar' : 'Nueva'} tarea</h3>
     <form id="tf"><label class="f"><span>Título</span><input name="titulo" required value="${esc(t.titulo || '')}"></label>
     <div class="two"><label class="f"><span>Fecha</span><input type="date" name="fecha" value="${esc(t.fecha ?? (t.id ? '' : todayISO()))}"></label>
@@ -275,13 +279,23 @@ function taskForm(t = {}) {
     <div class="two"><label class="f"><span>Tipo</span><select name="tipo">${[['tarea', 'Tarea'], ['cita', 'Cita / reunión'], ['pago', 'Pago / cobro']].map(([v, l]) => `<option value="${v}" ${t.tipo === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="f"><span>Asignada a</span><select name="asignado">${['Ambos', ...USERS].map(u => `<option ${((t.asignado || 'Ambos') === u) ? 'selected' : ''}>${u}</option>`).join('')}</select></label></div>
     <label class="f"><span>Boda</span><select name="bodaId"><option value="">— Ninguna —</option>${db.bodas.map(b => `<option value="${b.id}" ${t.bodaId === b.id ? 'selected' : ''}>${esc(coupleName(b))}</option>`).join('')}</select></label>
+    <label class="check"><input type="checkbox" name="avisar" ${t.avisar?.length ? 'checked' : ''}> Pedir a ${otro} que también lo añada a su iPhone</label>
     <label class="f"><span>Notas</span><textarea name="notas">${esc(t.notas || '')}</textarea></label>
-    <div class="btns"><button class="btn" type="submit">Guardar</button>${t.id ? `<button class="btn danger" type="button" data-act="delTask" data-id="${t.id}">Eliminar</button>` : ''}<button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
+    <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="phoneTask">Guardar y añadir a mi iPhone</button>${t.id ? `<button class="btn danger" type="button" data-act="delTask" data-id="${t.id}">Eliminar</button>` : ''}<button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
   $('#tf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
     const rec = { titulo: f.titulo.trim(), fecha: f.fecha, hora: f.hora, tipo: f.tipo, asignado: f.asignado, bodaId: f.bodaId, notas: f.notas };
-    if (t.id) Object.assign(db.tareas.find(x => x.id === t.id), rec); else db.tareas.push({ id: uid(), hecha: false, ...rec });
+    const avisar = f.avisar ? USERS.filter(u => u !== currentUser()) : [];
+    let item, reset = false;
+    if (t.id) {
+      item = db.tareas.find(x => x.id === t.id);
+      const changed = item.fecha !== rec.fecha || (item.hora || '') !== (rec.hora || '') || item.titulo !== rec.titulo;
+      Object.assign(item, rec, { avisar });
+      if (changed && Object.keys(item.iphone || {}).length) { item.iphone = {}; reset = true; }
+    } else { item = { id: uid(), hecha: false, iphone: {}, ...rec, avisar }; db.tareas.push(item); }
     log((t.id ? 'Editó' : 'Creó') + ' la tarea «' + rec.titulo + '»'); save(); closeSheet(); refresh();
+    if (reset) toast('Has cambiado la cita: añádela de nuevo al iPhone para actualizarla');
+    if (phoneAfter) { phoneAfter = false; addToPhone([item]); }
   });
 }
 
@@ -563,7 +577,7 @@ function viewAjustes(v) {
     ${db.historial.length ? [...db.historial].reverse().slice(0, 40).map(h => `<div class="hist"><b>${esc(h.usuario)}</b> · ${esc(h.texto)}<span>${esc(new Date(h.fecha).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></div>`).join('') : '<p class="hint">Aún no hay cambios registrados.</p>'}
     <h2>Datos de ejemplo</h2><p class="hint">Crea una boda de prueba con su calendario para ver cómo funciona. Se elimina desde su ficha con «Eliminar».</p>
     <div class="btns" style="margin-top:0"><button class="btn ghost sm" data-act="demoBoda">Crear boda de ejemplo</button></div>
-    <h2>Copia de seguridad</h2><p class="hint">Los datos se guardan solo en este dispositivo. Descarga una copia de vez en cuando.</p>
+    <h2>Copia de seguridad</h2><p class="hint">Los datos se guardan en este dispositivo. Descarga una copia de vez en cuando.<br>Espacio usado: <b>${Math.min(100, Math.round(JSON.stringify(db).length / 50000))} %</b>${JSON.stringify(db).length > 4000000 ? ' · casi lleno: usa enlaces de Drive en vez de archivos' : ''}</p>
     <div class="btns"><button class="btn ghost sm" data-act="exportDb">Exportar copia</button><label class="btn ghost sm" style="cursor:pointer">Importar copia<input type="file" accept="application/json,.json" id="impf" hidden></label></div>
     <h2>Instalar en el iPhone</h2><p class="hint">Abre la app en Safari → botón Compartir → “Añadir a pantalla de inicio”.</p>`;
   $$('[data-p]', v).forEach(el => el.addEventListener('input', () => { db.profile[el.dataset.p] = el.value; save(); }));
@@ -652,6 +666,239 @@ const actions = {
   drawSig: sigPad, delSig: () => { delete db.profile.firma; save(); refresh(); },
   exportDb: () => downloadBlob(new Blob([JSON.stringify(db, null, 1)], { type: 'application/json' }), `eas-wedding-copia-${todayISO()}.json`)
 };
+
+/* ---------- Añadido rápido y aviso en el iPhone ---------- */
+const fold = s => String(s ?? '').replace(/[áÁ]/g, 'a').replace(/[éÉ]/g, 'e').replace(/[íÍ]/g, 'i').replace(/[óÓ]/g, 'o').replace(/[úÚ]/g, 'u').replace(/[ñÑ]/g, 'n').toLowerCase();
+const MESES_N = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const DIAS_N = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
+const TIPOS = { tarea: 'Tarea', cita: 'Cita / reunión', pago: 'Pago / cobro' };
+function parseQuick(text) {
+  let o = ' ' + text.trim() + ' ', f = fold(o), fecha = '', hora = '', m;
+  const cut = x => { o = o.slice(0, x.index) + ' ' + o.slice(x.index + x[0].length); f = f.slice(0, x.index) + ' ' + f.slice(x.index + x[0].length); };
+  const t = todayISO();
+  // Hora
+  let hh = null, mm = 0, part = '', conLas = false;
+  if ((m = f.match(/\b(?:a|sobre) las?\s+(\d{1,2})(?:[:.h](\d{2}))?(?:\s*h\b|\s*horas)?(?:\s+de la\s+(manana|tarde|noche|madrugada))?/))) { hh = +m[1]; mm = +(m[2] || 0); part = m[3] || ''; conLas = true; cut(m); }
+  else if ((m = f.match(/\b(\d{1,2})[:.](\d{2})(?:\s*h\b|\s*horas)?(?:\s+de la\s+(manana|tarde|noche))?/))) { hh = +m[1]; mm = +m[2]; part = m[3] || ''; cut(m); }
+  else if ((m = f.match(/\b(\d{1,2})\s?h\b(?:\s+de la\s+(manana|tarde|noche))?/))) { hh = +m[1]; part = m[2] || ''; cut(m); }
+  if (hh !== null && hh <= 23 && mm <= 59) {
+    if ((part === 'tarde' || part === 'noche') && hh < 12) hh += 12;
+    else if (!part && conLas && hh >= 1 && hh <= 7) hh += 12;
+    hora = pad(hh) + ':' + pad(mm);
+  }
+  // Fecha
+  const mk = (d, mo, y) => { const dd = new Date(y, mo - 1, d); return dd.getMonth() === mo - 1 && dd.getDate() === d ? iso(dd) : ''; };
+  const fill = (d, mo, y) => { if (d > 31 || mo > 12 || d < 1 || mo < 1) return ''; let yy = y ? (y < 100 ? 2000 + y : y) : dt(t).getFullYear(); let r = mk(d, mo, yy); if (r && !y && r < t) r = mk(d, mo, yy + 1); return r; };
+  if ((m = f.match(/\bpasado manana\b/))) { fecha = addDays(t, 2); cut(m); }
+  else if ((m = f.match(/\bmanana\b/))) { fecha = addDays(t, 1); cut(m); }
+  else if ((m = f.match(/\bhoy\b/))) { fecha = t; cut(m); }
+  else if ((m = f.match(/\b(?:el proximo |el |este |proximo )?(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/))) { let diff = (DIAS_N.indexOf(m[1]) - dt(t).getDay() + 7) % 7; if (diff === 0) diff = 7; fecha = addDays(t, diff); cut(m); }
+  else if ((m = f.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/)) && (fecha = fill(+m[1], +m[2], m[3] ? +m[3] : 0))) cut(m);
+  else if ((m = f.match(new RegExp('\\b(?:el )?(\\d{1,2}) de (' + MESES_N.join('|') + ')(?: de (\\d{4}))?\\b'))) && (fecha = fill(+m[1], MESES_N.indexOf(m[2]) + 1, m[3] ? +m[3] : 0))) cut(m);
+  else if ((m = f.match(/\b(?:dentro de|en) (\d+) (dias?|semanas?|meses?)\b/))) { const n = +m[1]; fecha = /^d/.test(m[2]) ? addDays(t, n) : /^s/.test(m[2]) ? addDays(t, n * 7) : addMonths(t, n); cut(m); }
+  else if ((m = f.match(/\bla semana que viene\b/))) { fecha = addDays(t, 7); cut(m); }
+  else fecha = '';
+  let titulo = o.replace(/\s+/g, ' ').trim()
+    .replace(/^(?:[,.:;\-–\s]|(?:el|la|para|a|de|del|dia|día|que)\s)+/i, '').replace(/(?:[,.:;\-–\s]|\s(?:el|la|para|a|de|del|dia|día|que|en))+$/i, '').trim();
+  if (!titulo) return null;
+  titulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);
+  const tipo = /\b(pago|pagar|cobro|cobrar|factura|transferencia)\b/.test(fold(titulo)) ? 'pago' : hora ? 'cita' : 'tarea';
+  return { titulo, fecha: fecha || t, sinFecha: !fecha, hora, tipo };
+}
+let qPend = null;
+function quickSheet(p) {
+  qPend = p; const otro = USERS.find(u => u !== currentUser());
+  openSheet(`<h3>Añadir a la agenda</h3>
+    <div class="card"><div class="kv"><span>Qué</span><span>${esc(p.titulo)}</span></div>
+    <div class="kv"><span>Día</span><span>${esc(fmtDate(p.fecha, { weekday: 'long', day: 'numeric', month: 'long' }))}${p.sinFecha ? ' (no indicaste día: hoy)' : ''}</span></div>
+    <div class="kv"><span>Hora</span><span>${p.hora || 'Todo el día'}</span></div><div class="kv"><span>Tipo</span><span>${TIPOS[p.tipo]}</span></div></div>
+    <label class="check"><input type="checkbox" id="qa-avisar"> Pedir a ${otro} que también lo añada a su iPhone</label>
+    <div class="btns"><button class="btn" data-act="qaSave">Guardar</button><button class="btn ghost" data-act="qaSavePhone">Guardar y añadir a mi iPhone</button><button class="btn ghost" data-act="qaEdit">Editar</button><button class="btn ghost" data-act="closeSheet">Cancelar</button></div>`);
+}
+function qaCommit() {
+  const p = qPend; if (!p) return null;
+  const avisar = $('#qa-avisar')?.checked ? USERS.filter(u => u !== currentUser()) : [];
+  const rec = { id: uid(), hecha: false, titulo: p.titulo, fecha: p.fecha, hora: p.hora, tipo: p.tipo, asignado: 'Ambos', bodaId: '', notas: '', avisar, iphone: {} };
+  db.tareas.push(rec); log('Creó la tarea «' + rec.titulo + '»'); save(); closeSheet(); qPend = null; refresh(); return rec;
+}
+document.addEventListener('submit', e => {
+  if (e.target.id !== 'qa') return; e.preventDefault();
+  const v = $('#qai').value.trim(); if (!v) return;
+  const p = parseQuick(v); if (!p) return toast('Escribe también qué hay que hacer');
+  quickSheet(p);
+});
+const phoneLine = t => {
+  if (!t || !t.titulo || t.kind === 'b') return '';
+  const ya = USERS.filter(u => t.iphone?.[u]), falta = (t.avisar || []).filter(u => !t.iphone?.[u]);
+  return [ya.length ? 'En el iPhone de ' + ya.join(' y ') : '', falta.length ? 'falta ' + falta.join(' y ') : ''].filter(Boolean).join(' · ');
+};
+const pendingPhone = () => { const me = currentUser(), t = todayISO(); return db.tareas.filter(x => !x.hecha && x.fecha && x.fecha >= t && (x.avisar || []).includes(me) && !x.iphone?.[me]); };
+function pendBanner() {
+  const p = pendingPhone(); if (!p.length) return '';
+  return `<div class="card" style="text-align:center"><div style="font-size:15px">Tienes <b>${p.length}</b> ${p.length === 1 ? 'cita pendiente' : 'citas pendientes'} de añadir a tu iPhone</div>
+    <div class="btns" style="margin:10px 0 0"><button class="btn sm" data-act="phoneAllPending">Añadir a mi iPhone</button></div></div>`;
+}
+const icsEsc = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+const icsFold = l => { const out = []; while (l.length > 60) { out.push(l.slice(0, 60)); l = ' ' + l.slice(60); } out.push(l); return out.join('\r\n'); };
+function icsFor(items) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  const compact = i => i.replace(/-/g, '');
+  const L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Ea’s Wedding//ES', 'CALSCALE:GREGORIAN'];
+  items.forEach(t => {
+    const b = t.bodaId ? bodaById(t.bodaId) : null;
+    const desc = [b ? 'Boda: ' + coupleName(b) : '', t.notas].filter(Boolean).join('\n');
+    L.push('BEGIN:VEVENT', 'UID:' + t.id + '@easwedding', 'DTSTAMP:' + stamp, 'SUMMARY:' + icsEsc(t.titulo));
+    if (t.hora) {
+      const [h, mi] = t.hora.split(':').map(Number), end = new Date(2000, 0, 1, h + 1, mi);
+      L.push('DTSTART:' + compact(t.fecha) + 'T' + pad(h) + pad(mi) + '00', 'DTEND:' + compact(t.fecha) + 'T' + pad(end.getHours()) + pad(end.getMinutes()) + '00');
+    } else L.push('DTSTART;VALUE=DATE:' + compact(t.fecha), 'DTEND;VALUE=DATE:' + compact(addDays(t.fecha, 1)));
+    if (desc) L.push('DESCRIPTION:' + icsEsc(desc));
+    if (b?.lugar) L.push('LOCATION:' + icsEsc(b.lugar));
+    (t.hora ? ['-P1D', '-PT1H'] : ['-PT15H', 'PT9H']).forEach(tr => L.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(t.titulo), 'TRIGGER:' + tr, 'END:VALARM'));
+    L.push('END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  return L.map(icsFold).join('\r\n') + '\r\n';
+}
+async function addToPhone(items) {
+  items = items.filter(t => t && t.fecha);
+  if (!items.length) return toast('Pon primero una fecha');
+  const ics = icsFor(items), name = 'ea-wedding.ics';
+  const mark = () => { const u = currentUser(); items.forEach(t => { t.iphone = Object.assign({}, t.iphone, { [u]: true }); }); log('Añadió al iPhone: ' + (items.length === 1 ? '«' + items[0].titulo + '»' : items.length + ' citas')); save(); refresh(); };
+  try {
+    const file = new File([ics], name, { type: 'text/calendar' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Ea’s Wedding' }); mark(); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  downloadBlob(new Blob([ics], { type: 'text/calendar' }), name); toast('Abre el archivo para añadirlo al Calendario'); mark();
+}
+
+/* ---------- PROVEEDORES ---------- */
+const CAT_DEF = ['Espacios y fincas', 'Catering', 'Fotografía', 'Vídeo', 'Música en directo', 'DJ', 'Iluminación y sonido', 'Floristería', 'Decoración', 'Papelería e invitaciones', 'Tartas y dulces', 'Vestidos y trajes', 'Maquillaje y peluquería', 'Transporte', 'Otros'];
+const cats = () => (db.profile.catProv && db.profile.catProv.length ? db.profile.catProv : CAT_DEF);
+const provById = id => db.proveedores.find(p => p.id === id);
+const origen = p => [p.ciudad, p.provincia].filter(Boolean).join(', ');
+const tarifasDe = id => db.tarifas.filter(t => t.provId === id).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.creada || '').localeCompare(a.creada || ''));
+const webUrl = u => /^https?:\/\//i.test(u) ? u : 'https://' + u;
+const MAX_ARCH = 500 * 1024;
+let provQ = '', provZona = '', provOpen = {};
+function parseImporte(v) {
+  v = String(v || '').trim().replace(/[€\s]/g, ''); if (!v) return null;
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(v)) v = v.replace(/\./g, '').replace(',', '.'); else v = v.replace(',', '.');
+  const n = parseFloat(v); return isNaN(n) ? null : n;
+}
+function provListHTML() {
+  if (!db.proveedores.length) return `<div class="empty">Aún no hay proveedores.<br>Pulsa + para añadir el primero.</div>`;
+  const q = fold(provQ).trim();
+  const list = db.proveedores.filter(p => (!provZona || (p.provincia || '').trim() === provZona) && (!q || fold([p.nombre, p.categoria, p.ciudad, p.provincia, p.contacto, p.notas].join(' ')).includes(q)));
+  if (!list.length) return `<div class="empty">Ningún proveedor coincide.</div>`;
+  const key = p => p.categoria || 'Sin categoría';
+  const names = [...cats(), ...new Set(list.map(key).filter(c => !cats().includes(c)))], filtering = !!(q || provZona);
+  return names.map(c => {
+    const ps = list.filter(p => key(p) === c).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')); if (!ps.length) return '';
+    return `<details class="card" data-cat="${esc(c)}" ${filtering || provOpen[c] ? 'open' : ''} ontoggle="provOpen[this.dataset.cat]=this.open">
+      <summary style="cursor:pointer;text-align:center;font-family:var(--serif);font-size:17px;list-style:none">${esc(c)} · ${ps.length}</summary>
+      <div style="margin-top:10px">${ps.map(p => { const lt = tarifasDe(p.id)[0]; return `<div class="row" data-act="openProv" data-id="${p.id}"><div class="main"><div class="t">${esc(p.nombre)}</div><div class="s">${esc([origen(p), lt && lt.importe != null && lt.importe !== '' ? 'Última tarifa ' + fmtMoney(+lt.importe) : ''].filter(Boolean).join(' · '))}</div></div></div>`; }).join('')}</div></details>`;
+  }).join('');
+}
+function viewProveedores(v) {
+  const zonas = [...new Set(db.proveedores.map(p => (p.provincia || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+  if (provZona && !zonas.includes(provZona)) provZona = '';
+  v.innerHTML = `<h1>Proveedores</h1><p class="sub">Por categoría, con su procedencia y su historial de tarifas</p>
+    <div class="quick"><input id="pq" type="search" placeholder="Buscar proveedor, ciudad…" value="${esc(provQ)}"></div>
+    ${zonas.length ? `<label class="f"><span>Zona</span><select id="pz"><option value="">Todas las zonas</option>${zonas.map(z => `<option ${z === provZona ? 'selected' : ''}>${esc(z)}</option>`).join('')}</select></label>` : ''}
+    <div id="plist">${provListHTML()}</div>
+    <div class="btns"><button class="btn ghost sm" data-act="catManage">Gestionar categorías</button></div>
+    <button class="fab" data-act="newProv" aria-label="Nuevo proveedor">+</button>`;
+  $('#pq', v).addEventListener('input', e => { provQ = e.target.value; $('#plist').innerHTML = provListHTML(); });
+  $('#pz', v)?.addEventListener('change', e => { provZona = e.target.value; $('#plist').innerHTML = provListHTML(); });
+}
+function provForm(p = {}) {
+  const f = (n, l, ex = '') => `<label class="f"><span>${l}</span><input name="${n}" value="${esc(p[n] || '')}" ${ex}></label>`;
+  const provs = [...new Set(db.proveedores.map(x => (x.provincia || '').trim()).filter(Boolean))];
+  const cur = p.categoria || '', opts = [...cats()]; if (cur && !opts.includes(cur)) opts.push(cur);
+  const s = openSheet(`<h3>${p.id ? 'Editar' : 'Nuevo'} proveedor</h3><form id="pf">
+    ${f('nombre', 'Nombre', 'required')}
+    <label class="f"><span>Categoría</span><select name="categoria">${opts.map(c => `<option ${c === cur ? 'selected' : ''}>${esc(c)}</option>`).join('')}</select></label>
+    <div class="two">${f('ciudad', 'Ciudad o localidad')}<label class="f"><span>Provincia / zona</span><input name="provincia" list="provl" value="${esc(p.provincia || '')}"><datalist id="provl">${provs.map(x => `<option value="${esc(x)}">`).join('')}</datalist></label></div>
+    ${f('contacto', 'Persona de contacto')}<div class="two">${f('tel', 'Teléfono', 'type="tel"')}${f('email', 'Email', 'type="email"')}</div>
+    ${f('web', 'Web o Instagram')}
+    <label class="f"><span>Notas</span><textarea name="notas">${esc(p.notas || '')}</textarea></label>
+    <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
+  $('#pf', s).addEventListener('submit', e => {
+    e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
+    let rec; if (p.id) { rec = provById(p.id); Object.assign(rec, f); } else { rec = { id: uid(), ...f, creada: new Date().toISOString() }; db.proveedores.push(rec); }
+    log((p.id ? 'Editó' : 'Añadió') + ' el proveedor «' + rec.nombre + '»'); save(); closeSheet(); location.hash = '#proveedor/' + rec.id; refresh();
+  });
+}
+function tarifaHTML(t) {
+  const arch = t.archivo ? `<button class="btn ghost sm" data-act="openArch" data-id="${t.id}">Abrir ${esc(t.archivo.nombre)}</button>` : '';
+  const enl = t.enlace ? `<a class="btn ghost sm" href="${esc(webUrl(t.enlace))}" target="_blank" rel="noopener">Abrir enlace</a>` : '';
+  return `<div class="card"><div class="kv"><span>${esc(fmtDate(t.fecha))}</span><span><b>${t.importe != null && t.importe !== '' ? esc(fmtMoney(+t.importe)) : '—'}</b></span></div>
+    <div style="margin:4px 0">${esc(t.concepto || '')}</div>${t.nota ? `<div class="hint" style="text-align:left;white-space:pre-wrap">${esc(t.nota)}</div>` : ''}
+    <div class="btns" style="margin:8px 0 0;justify-content:flex-start">${arch}${enl}<button class="btn ghost sm" data-act="editTarifa" data-id="${t.id}">Editar</button><button class="btn danger sm" data-act="delTarifa" data-id="${t.id}">Borrar</button></div></div>`;
+}
+function viewProveedor(v, id) {
+  const p = provById(id); if (!p) { location.hash = '#proveedores'; return; }
+  const tf = tarifasDe(id), kv = (k, val) => val ? `<div class="kv"><span>${k}</span><span>${val}</span></div>` : '';
+  v.innerHTML = `<a class="back" href="#proveedores">‹ Proveedores</a><div class="name" style="font-size:24px">${esc(p.nombre)}</div>
+    <div class="countdown">${esc(origen(p) || 'Procedencia sin indicar')}</div>
+    <div class="center" style="margin:10px 0"><span class="tag dark">${esc(p.categoria || 'Sin categoría')}</span></div>
+    <div class="card">${kv('Contacto', esc(p.contacto))}${kv('Teléfono', p.tel ? `<a href="tel:${esc(p.tel.replace(/\s/g, ''))}">${esc(p.tel)}</a>` : '')}${kv('Email', p.email ? `<a href="mailto:${esc(p.email)}">${esc(p.email)}</a>` : '')}${kv('Web', p.web ? `<a href="${esc(webUrl(p.web))}" target="_blank" rel="noopener">${esc(p.web)}</a>` : '')}${kv('Notas', esc(p.notas))}</div>
+    <div class="btns"><button class="btn ghost sm" data-act="editProv" data-id="${id}">Editar</button><button class="btn danger sm" data-act="delProv" data-id="${id}">Eliminar</button></div>
+    <h2>Historial de tarifas</h2><p class="hint" style="margin-top:-6px">De la más reciente a la más antigua</p>
+    ${tf.length ? tf.map(tarifaHTML).join('') : '<div class="empty" style="padding:10px">Aún no hay tarifas</div>'}
+    <div class="btns"><button class="btn sm" data-act="newTarifa" data-id="${id}">+ Añadir tarifa</button></div>`;
+}
+function tarifaForm(provId, t = {}) {
+  let archivo = t.archivo || null;
+  const s = openSheet(`<h3>${t.id ? 'Editar' : 'Nueva'} tarifa</h3><form id="tff">
+    <div class="two"><label class="f"><span>Fecha</span><input type="date" name="fecha" value="${esc(t.fecha || todayISO())}" required></label>
+    <label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${t.importe != null && t.importe !== '' ? esc(String(t.importe).replace('.', ',')) : ''}" placeholder="1.500"></label></div>
+    <label class="f"><span>Concepto</span><input name="concepto" required value="${esc(t.concepto || '')}" placeholder="Ej.: Pack boda completo 2027"></label>
+    <label class="f"><span>Notas</span><textarea name="nota">${esc(t.nota || '')}</textarea></label>
+    <label class="f"><span>Enlace (Drive u otro)</span><input name="enlace" value="${esc(t.enlace || '')}" placeholder="https://drive.google.com/…"></label>
+    <div class="center"><div id="afile" class="hint">${archivo ? 'Archivo: ' + esc(archivo.nombre) : 'Sin archivo'}</div>
+    <div class="btns" style="margin-top:0"><label class="btn ghost sm" style="cursor:pointer">Adjuntar dossier o tarifa (máx. 500 KB)<input type="file" id="afi" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hidden></label><button class="btn danger sm" type="button" id="arm" style="display:${archivo ? 'inline-flex' : 'none'}">Quitar archivo</button></div></div>
+    <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
+  $('#afi', s).onchange = e => {
+    const f = e.target.files[0]; if (!f) return;
+    if (f.size > MAX_ARCH) { e.target.value = ''; return toast('Pesa más de 500 KB: súbelo a Drive y pega el enlace'); }
+    const r = new FileReader(); r.onload = () => { archivo = { nombre: f.name, tipo: f.type || 'application/octet-stream', size: f.size, data: r.result }; $('#afile', s).textContent = 'Archivo: ' + f.name; $('#arm', s).style.display = 'inline-flex'; }; r.readAsDataURL(f);
+  };
+  $('#arm', s).onclick = () => { archivo = null; $('#afile', s).textContent = 'Sin archivo'; $('#arm', s).style.display = 'none'; $('#afi', s).value = ''; };
+  $('#tff', s).addEventListener('submit', e => {
+    e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
+    const rec = { fecha: f.fecha, concepto: f.concepto.trim(), importe: parseImporte(f.importe), nota: f.nota.trim(), enlace: f.enlace.trim(), archivo };
+    if (t.id) Object.assign(db.tarifas.find(x => x.id === t.id), rec); else db.tarifas.push({ id: uid(), provId, creada: new Date().toISOString(), ...rec });
+    log((t.id ? 'Editó' : 'Añadió') + ' una tarifa de «' + (provById(provId)?.nombre || '') + '»'); save(); closeSheet(); refresh();
+  });
+}
+function catSheet() {
+  const c = cats();
+  openSheet(`<h3>Categorías</h3><p class="hint">Se comparten entre Andrea y Martin.</p>
+    ${c.map((n, i) => { const k = db.proveedores.filter(p => p.categoria === n).length; return `<div class="row" style="cursor:default"><div class="main"><div class="t">${esc(n)}</div><div class="s">${k} proveedor${k === 1 ? '' : 'es'}</div></div><button class="btn ghost sm" data-act="catRename" data-id="${i}">Renombrar</button>${k ? '' : `<button class="btn danger sm" data-act="catDel" data-id="${i}">Borrar</button>`}</div>`; }).join('')}
+    <div class="btns"><button class="btn sm" data-act="catAdd">+ Nueva categoría</button><button class="btn ghost sm" data-act="closeSheet">Cerrar</button></div>`);
+}
+Object.assign(actions, {
+  phoneTask: () => { phoneAfter = true; $('#tf').requestSubmit(); },
+  phoneAllPending: () => addToPhone(pendingPhone()),
+  qaSave: () => { qaCommit(); },
+  qaSavePhone: () => { const r = qaCommit(); if (r) addToPhone([r]); },
+  qaEdit: () => { const p = qPend; closeSheet(); taskForm({ titulo: p.titulo, fecha: p.fecha, hora: p.hora, tipo: p.tipo }); },
+  openProv: id => { location.hash = '#proveedor/' + id; }, newProv: () => provForm(), editProv: id => provForm(provById(id)),
+  delProv: id => { const p = provById(id); if (!confirm('¿Eliminar este proveedor con todas sus tarifas?')) return; log('Eliminó el proveedor «' + p.nombre + '»'); db.proveedores = db.proveedores.filter(x => x.id !== id); db.tarifas = db.tarifas.filter(t => t.provId !== id); save(); location.hash = '#proveedores'; },
+  newTarifa: id => tarifaForm(id), editTarifa: id => { const t = db.tarifas.find(x => x.id === id); tarifaForm(t.provId, t); },
+  delTarifa: id => { if (!confirm('¿Borrar esta tarifa?')) return; log('Borró una tarifa'); db.tarifas = db.tarifas.filter(t => t.id !== id); save(); refresh(); },
+  openArch: id => {
+    const t = db.tarifas.find(x => x.id === id); if (!t?.archivo) return;
+    const bin = atob(t.archivo.data.split(',')[1]), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    const blob = new Blob([u8], { type: t.archivo.tipo }); const w = window.open(URL.createObjectURL(blob), '_blank'); if (!w) downloadBlob(blob, t.archivo.nombre);
+  },
+  catManage: () => catSheet(),
+  catAdd: () => { const n = (prompt('Nombre de la nueva categoría') || '').trim(); if (!n) return; const c = [...cats()]; if (c.some(x => fold(x) === fold(n))) return toast('Esa categoría ya existe'); c.push(n); db.profile.catProv = c; log('Añadió la categoría «' + n + '»'); save(); catSheet(); refresh(); },
+  catRename: i => { const c = [...cats()], old = c[i], n = (prompt('Nuevo nombre', old) || '').trim(); if (!n || n === old) return; if (c.some((x, k) => k !== +i && fold(x) === fold(n))) return toast('Esa categoría ya existe'); c[i] = n; db.profile.catProv = c; db.proveedores.forEach(p => { if (p.categoria === old) p.categoria = n; }); log('Renombró la categoría «' + old + '» a «' + n + '»'); save(); catSheet(); refresh(); },
+  catDel: i => { const c = [...cats()], n = c[i]; if (!confirm('¿Borrar la categoría «' + n + '»?')) return; c.splice(i, 1); db.profile.catProv = c; log('Borró la categoría «' + n + '»'); save(); catSheet(); refresh(); }
+});
 
 /* ---------- Arranque ---------- */
 route();
