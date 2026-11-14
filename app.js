@@ -15,7 +15,7 @@ const fmtDate = (i, o = { day: 'numeric', month: 'long', year: 'numeric' }) => i
 const parseNum = v => { if (v === '' || v == null) return NaN; const n = parseFloat(String(v).replace(/\./g, '').replace(',', '.')); return n; };
 const fmtMoney = n => isNaN(n) ? '' : n.toLocaleString('de-DE', { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 }) + ' €';
 const USERS = ['Andrea', 'Martin'];
-const LOGO = 'https://easweddingplanner.com/wp-content/uploads/2025/06/DFVRW.webp';
+const LOGO = 'icons/logo.png';
 
 /* ---------- Plantilla de contrato por defecto ---------- */
 const TPL_BASE = `# CONTRATO DE PRESTACIÓN DE SERVICIOS DE ORGANIZACIÓN Y COORDINACIÓN DE BODA
