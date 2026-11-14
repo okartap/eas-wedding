@@ -215,13 +215,11 @@ function viewInicio(v) {
 
   v.innerHTML = `
     <p class="sub" style="margin-top:6px">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
-    <p class="hint" style="margin:0 0 12px">Sesión de <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''} · <span data-act="logout" style="text-decoration:underline;cursor:pointer">Cerrar sesión</span></p>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}
-    ${diarioGeneralHTML().replace('margin:0 0 18px','margin:4px 0 10px')}
-    ${notasHTML().replace('margin-top:26px','margin-top:0;margin-bottom:18px')}
     <div class="seg"><button class="${agendaMode === 'lista' ? 'on' : ''}" data-act="agendaMode" data-id="lista">Lista</button><button class="${agendaMode === 'mes' ? 'on' : ''}" data-act="agendaMode" data-id="mes">Mes</button></div>
     ${body}
+    ${notasHTML().replace('margin-top:26px','margin-top:30px;margin-bottom:90px')}
     <button class="fab" data-act="newTask" aria-label="Nueva tarea">+</button>`;
 }
 function calendarHTML() {
@@ -808,6 +806,8 @@ function viewPlantilla(v, id) {
 function viewAjustes(v) {
   const p = db.profile, f = (n, l, ex = '', ph = '') => `<label class="f"><span>${l}</span><input data-p="${n}" value="${esc(p[n] || '')}" placeholder="${esc(ph)}" ${ex}></label>`;
   v.innerHTML = `<h1>Ajustes</h1><p class="sub">Tus datos aparecerán en los contratos</p>
+    <p class="hint" style="margin:0 0 12px">Sesión de <b>${esc(currentUser())}</b> · <span data-act="logout" style="text-decoration:underline;cursor:pointer">Cerrar sesión</span></p>
+    ${diarioGeneralHTML().replace('margin:0 0 18px','margin:4px 0 18px')}
     ${f('marca', 'Marca')}${f('nombre', 'Nombre / razón social', '', 'Nombre y apellidos')}<div class="two">${f('nif', 'NIF')}${f('telefono', 'Teléfono', 'type="tel"')}</div>
     ${f('direccion', 'Dirección')}${f('email', 'Email', 'type="email"')}${f('ciudad', 'Ciudad habitual de firma')}
     <h2>Mi firma</h2>

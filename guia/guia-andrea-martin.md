@@ -15,7 +15,7 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
 - Con el PIN correcto la app entra y **recuerda la sesión en ese móvil**: no vuelve a pedir el PIN mientras no se cierre sesión.
 - El nombre elegido sirve para el historial (quién hizo cada cambio, quién escribió cada nota del diario) y para los avisos «falta Martin».
 - Tras **5 PIN incorrectos seguidos** hay una espera de 30 segundos.
-- **Cerrar sesión**: en Inicio (debajo de la fecha) y en Ajustes → **Acceso**. Al cerrar sesión se vuelve a pedir persona y PIN. Cuando esté activa la sincronización (punto 13), cerrar sesión pide primero el **correo y la contraseña compartidos** y después persona y PIN.
+- **Cerrar sesión**: en Ajustes (arriba del todo, «Sesión de…») y en Ajustes → **Acceso**. Al cerrar sesión se vuelve a pedir persona y PIN. Cuando esté activa la sincronización (punto 13), cerrar sesión pide primero el **correo y la contraseña compartidos** y después persona y PIN.
 - En Ajustes → **Acceso**:
   - **Cambiar mi PIN**: pide el PIN actual, cierra la sesión y deja crear uno nuevo.
   - **Reiniciar el PIN del otro**: si alguien olvida su PIN, la otra persona lo reinicia desde su sesión y, la próxima vez que entre, crea uno nuevo.
@@ -64,7 +64,7 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
 - Si la tarea ya es de una boda, la nota va al diario de esa boda sin preguntar más. Si no lo es, la ventana ofrece un desplegable **Boda**; con «Ninguna (diario general)» la nota queda en el diario general del negocio.
 - Cada nota guarda el día, la tarea de la que viene y quién la escribió. Se puede **editar o borrar** tocándola.
 - **Diario de cada boda**: en la ficha de la boda, sección «Diario», de lo más nuevo a lo más antiguo.
-- **Diario general**: desplegable en Inicio, para lo que no es de ninguna boda.
+- **Diario general**: desplegable en Ajustes (arriba), para lo que no es de ninguna boda.
 - Se puede apuntar una nota **en cualquier momento** con «+ Apuntar», aunque no se haya completado nada.
 - Al eliminar una boda se elimina también su diario.
 
@@ -100,7 +100,7 @@ Un punto pequeño arriba a la derecha (frente al interruptor de modo claro/oscur
 - **Acceso**: cambiar mi PIN, reiniciar el PIN del otro y cerrar sesión (punto 2).
 - Indicador de **espacio usado** del móvil.
 - **Todos los borrados piden confirmación** (tareas y citas, notas del diario, bodas, contratos, plantillas, proveedores, tarifas, categorías, firma guardada, archivo adjunto) y la app avisa claramente antes de importar una copia de seguridad, que sustituye todos los datos del móvil.
-- «Mejoras y fallos de la app» (desplegable en Inicio): apuntar lo que falta o no funciona y copiar la lista.
+- «Mejoras y fallos de la app» (desplegable al final de Inicio): apuntar lo que falta o no funciona y copiar la lista.
 
 ## 12. Limitaciones actuales
 - Hasta que se active la sincronización, **cada móvil guarda sus propios datos**: lo que apunta Andrea no lo ve Martin (tampoco el diario). Los avisos «falta Martin» tampoco cruzan entre móviles. **Los PIN también son de cada móvil**: el PIN que crea Andrea en su móvil no vale en el de Martin.
