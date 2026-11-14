@@ -352,6 +352,7 @@ function taskForm(t = {}) {
 }
 
 /* ---------- BODAS ---------- */
+const CEREMONIAS = ['', 'Civil', 'Religiosa con misa', 'Religiosa sin misa'];
 const ESTADOS = ['Consulta', 'Contratada', 'En planificación', 'Celebrada'];
 function viewBodas(v) {
   const list = [...db.bodas].sort((a, b) => (a.fecha || '9999').localeCompare(b.fecha || '9999'));
@@ -370,7 +371,10 @@ function bodaForm(b = {}) {
   const s = openSheet(`<h3>${b.id ? 'Editar boda' : 'Nueva boda'}</h3>
     <form id="bf"><div class="two">${f('n1', 'Nombre 1', 'required')}${f('dni1', 'DNI 1')}</div><div class="two">${f('n2', 'Nombre 2')}${f('dni2', 'DNI 2')}</div>
     <div class="two">${f('email', 'Email', 'type="email"')}${f('tel', 'Teléfono', 'type="tel"')}</div>${f('dir', 'Dirección de los clientes')}
-    <div class="two"><label class="f"><span>Fecha de la boda</span><input type="date" name="fecha" value="${esc(b.fecha || '')}"></label>${f('lugar', 'Lugar')}</div>
+    <label class="f"><span>Fecha de la boda</span><input type="date" name="fecha" value="${esc(b.fecha || '')}"></label>
+    <label class="f"><span>Tipo de ceremonia</span><select name="ceremonia">${CEREMONIAS.map(e => `<option value="${e}" ${((b.ceremonia || '') === e) ? 'selected' : ''}>${e || 'Sin definir'}</option>`).join('')}</select></label>
+    <div class="two">${f('lugarCer', 'Lugar de la ceremonia')}<label class="f"><span>Hora de la ceremonia</span><input type="time" name="horaCer" value="${esc(b.horaCer || '')}"></label></div>
+    <div class="two">${f('lugar', 'Lugar de la celebración')}<label class="f"><span>Hora de la celebración</span><input type="time" name="horaCel" value="${esc(b.horaCel || '')}"></label></div>
     <label class="f"><span>Servicio contratado</span><select name="servicio">${Object.keys(SERVICIOS).map(e => `<option ${((b.servicio || SERV_DEF) === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Estado</span><select name="estado">${ESTADOS.map(e => `<option ${((b.estado || 'Consulta') === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Notas</span><textarea name="notas">${esc(b.notas || '')}</textarea></label>
@@ -403,7 +407,7 @@ function viewBoda(v, id) {
   v.innerHTML = `<a class="back" href="#bodas">‹ Bodas</a><div class="name" style="font-size:24px">${esc(coupleName(b))}</div>
     <div class="countdown">${esc(b.fecha ? fmtDate(b.fecha) : 'Fecha por definir')}${cd ? ' · ' + cd : ''}</div>
     <div class="center" style="margin:10px 0"><span class="tag dark">${esc(b.servicio || SERV_DEF)}</span> <span class="tag">${esc(b.estado || 'Consulta')}</span></div>
-    <div class="card">${kv('Lugar', b.lugar)}${kv('Email', b.email)}${kv('Teléfono', b.tel)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
+    <div class="card">${kv('Ceremonia', b.ceremonia)}${kv('Lugar de la ceremonia', b.lugarCer ? b.lugarCer + (b.horaCer ? ' · ' + b.horaCer + ' h' : '') : (b.horaCer ? b.horaCer + ' h' : ''))}${kv('Celebración', b.lugar ? b.lugar + (b.horaCel ? ' · ' + b.horaCel + ' h' : '') : (b.horaCel ? b.horaCel + ' h' : ''))}${kv('Email', b.email)}${kv('Teléfono', b.tel)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
     <div class="btns"><button class="btn ghost sm" data-act="editBoda" data-id="${id}">Editar</button><button class="btn danger sm" data-act="delBoda" data-id="${id}">Eliminar</button></div>
     <h2>Contratos</h2>${cs.length ? cs.map(contratoRow).join('') : '<div class="empty" style="padding:10px">Sin contratos</div>'}
     <div class="btns"><a class="btn sm" href="#contrato/nuevo/${id}">+ Nuevo contrato</a></div>

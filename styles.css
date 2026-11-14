@@ -99,7 +99,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--slate)}
 textarea{min-height:92px;resize:vertical}
 textarea.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;line-height:1.5;min-height:360px}
 textarea.doc{font-family:var(--serif);font-size:15px;line-height:1.55;min-height:420px}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end}
 .check{display:flex;align-items:center;gap:10px;font-size:15px;margin:10px 0}
 .check input{width:22px;height:22px;flex:none;accent-radius:6px;appearance:auto;-webkit-appearance:checkbox}
 .switch{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:12px 0}
