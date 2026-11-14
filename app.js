@@ -216,7 +216,6 @@ function viewInicio(v) {
     <div class="center"><img class="logo" src="${LOGO}" alt="Ea’s Wedding" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{textContent:'Ea’s Wedding'}))"></div>
     <p class="sub">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
     <p class="hint" style="margin:0 0 12px">Sesión de <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''} · <span data-act="logout" style="text-decoration:underline;cursor:pointer">Cerrar sesión</span></p>
-    <div class="center" style="margin:-2px 0 12px"><button class="btn ghost sm" data-act="toggleTheme">${document.documentElement.dataset.theme === 'dark' ? '☀ Modo claro' : '☾ Modo oscuro'}</button></div>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}
     ${diarioGeneralHTML().replace('margin:0 0 18px','margin:4px 0 10px')}
@@ -352,6 +351,7 @@ function taskForm(t = {}) {
 }
 
 /* ---------- BODAS ---------- */
+const PROV_BODA = ['Finca','Restaurante','Catering','Fotógrafo','Videógrafo','Florista','Música iglesia','DJ','Montaje escenario','Grupo música cóctel','Grupo música barra libre','Maquilladora','Peluquera','Traje de novia','Joyas','Zapatos','Traje de novio','Otros'];
 const CEREMONIAS = ['', 'Civil', 'Religiosa con misa', 'Religiosa sin misa'];
 const ESTADOS = ['Consulta', 'Contratada', 'En planificación', 'Celebrada'];
 function viewBodas(v) {
@@ -375,6 +375,11 @@ function bodaForm(b = {}) {
     <label class="f"><span>Tipo de ceremonia</span><select name="ceremonia">${CEREMONIAS.map(e => `<option value="${e}" ${((b.ceremonia || '') === e) ? 'selected' : ''}>${e || 'Sin definir'}</option>`).join('')}</select></label>
     <div class="two">${f('lugarCer', 'Lugar de la ceremonia')}<label class="f"><span>Hora de la ceremonia</span><input type="time" name="horaCer" value="${esc(b.horaCer || '')}"></label></div>
     <div class="two">${f('lugar', 'Lugar de la celebración')}<label class="f"><span>Hora de la celebración</span><input type="time" name="horaCel" value="${esc(b.horaCel || '')}"></label></div>
+    <details class="dgroup" ${(b.invitados || Object.values(b.provs || {}).some(x => x.on)) ? 'open' : ''}><summary class="group">Otros datos</summary>
+      <label class="f"><span>Número de invitados</span><input type="number" name="invitados" inputmode="numeric" min="0" value="${esc(b.invitados || '')}"></label>
+      <div class="hint" style="text-align:center;margin:10px 0 2px">Proveedores contratados</div>
+      ${PROV_BODA.map((c, i) => { const x = (b.provs || {})[c] || {}; return `<div class="pv"><label class="check"><input type="checkbox" name="pv${i}" ${x.on ? 'checked' : ''}> ${c}</label><input name="pn${i}" placeholder="¿Cuál? (opcional)" value="${esc(x.nombre || '')}"></div>`; }).join('')}
+    </details>
     <label class="f"><span>Servicio contratado</span><select name="servicio">${Object.keys(SERVICIOS).map(e => `<option ${((b.servicio || SERV_DEF) === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Estado</span><select name="estado">${ESTADOS.map(e => `<option ${((b.estado || 'Consulta') === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Notas</span><textarea name="notas">${esc(b.notas || '')}</textarea></label>
@@ -382,6 +387,7 @@ function bodaForm(b = {}) {
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
   $('#bf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); const hitos = f.hitos; delete f.hitos;
+    f.provs = {}; PROV_BODA.forEach((c, i) => { const on = f['pv' + i] === 'on', nombre = (f['pn' + i] || '').trim(); if (on || nombre) f.provs[c] = { on: on || !!nombre, nombre }; delete f['pv' + i]; delete f['pn' + i]; });
     let rec;
     if (b.id) { rec = db.bodas.find(x => x.id === b.id); Object.assign(rec, f); }
     else { rec = { id: uid(), ...f }; db.bodas.push(rec); if (hitos && rec.fecha) crearHitos(rec); }
@@ -407,7 +413,8 @@ function viewBoda(v, id) {
   v.innerHTML = `<a class="back" href="#bodas">‹ Bodas</a><div class="name" style="font-size:24px">${esc(coupleName(b))}</div>
     <div class="countdown">${esc(b.fecha ? fmtDate(b.fecha) : 'Fecha por definir')}${cd ? ' · ' + cd : ''}</div>
     <div class="center" style="margin:10px 0"><span class="tag dark">${esc(b.servicio || SERV_DEF)}</span> <span class="tag">${esc(b.estado || 'Consulta')}</span></div>
-    <div class="card">${kv('Ceremonia', b.ceremonia)}${kv('Lugar de la ceremonia', b.lugarCer ? b.lugarCer + (b.horaCer ? ' · ' + b.horaCer + ' h' : '') : (b.horaCer ? b.horaCer + ' h' : ''))}${kv('Celebración', b.lugar ? b.lugar + (b.horaCel ? ' · ' + b.horaCel + ' h' : '') : (b.horaCel ? b.horaCel + ' h' : ''))}${kv('Email', b.email)}${kv('Teléfono', b.tel)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
+    <div class="card">${kv('Ceremonia', b.ceremonia)}${kv('Lugar de la ceremonia', b.lugarCer ? b.lugarCer + (b.horaCer ? ' · ' + b.horaCer + ' h' : '') : (b.horaCer ? b.horaCer + ' h' : ''))}${kv('Celebración', b.lugar ? b.lugar + (b.horaCel ? ' · ' + b.horaCel + ' h' : '') : (b.horaCel ? b.horaCel + ' h' : ''))}${kv('Invitados', b.invitados)}${kv('Email', b.email)}${kv('Teléfono', b.tel)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
+    ${Object.keys(b.provs || {}).some(c => b.provs[c].on) ? `<h2>Proveedores contratados</h2><div class="card">${PROV_BODA.filter(c => (b.provs[c] || {}).on).map(c => kv(c, b.provs[c].nombre || 'Contratado')).join('')}</div>` : ''}
     <div class="btns"><button class="btn ghost sm" data-act="editBoda" data-id="${id}">Editar</button><button class="btn danger sm" data-act="delBoda" data-id="${id}">Eliminar</button></div>
     <h2>Contratos</h2>${cs.length ? cs.map(contratoRow).join('') : '<div class="empty" style="padding:10px">Sin contratos</div>'}
     <div class="btns"><a class="btn sm" href="#contrato/nuevo/${id}">+ Nuevo contrato</a></div>
@@ -693,7 +700,7 @@ const actions = {
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
     try { localStorage.setItem('eas.theme', dark ? 'dark' : 'light'); } catch (e) { }
     const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#1D1914' : '#FBF6F0';
-    refresh();
+    paintTheme();
   },
   delTask: id => { const t = db.tareas.find(x => x.id === id); if (!confirm('¿Eliminar «' + (t?.titulo || 'esta tarea') + '»?')) return; log('Eliminó la tarea «' + t?.titulo + '»'); db.tareas = db.tareas.filter(t => t.id !== id); save(); closeSheet(); refresh(); },
   newDiario: id => diarioForm({}, { bodaId: id || '' }), editDiario: id => diarioForm(db.diario.find(e => e.id === id), {}),
@@ -1040,6 +1047,17 @@ Object.assign(actions, {
 /* ---------- Arranque ---------- */
 route();
 Sync.init();
+function paintTheme() {
+  let d = document.getElementById('thm');
+  if (!d) { d = document.createElement('div'); d.id = 'thm'; d.setAttribute('data-act', 'toggleTheme'); d.setAttribute('role', 'button'); document.body.appendChild(d); }
+  const dark = document.documentElement.dataset.theme === 'dark';
+  d.setAttribute('aria-label', dark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro');
+  d.innerHTML = (dark
+    ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>'
+    : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>')
+    + '<i class="sw' + (dark ? ' on' : '') + '"><b></b></i>';
+}
+paintTheme();
 Net.init();
 Drive.restore();
 Drive.loadGIS().then(() => Drive.silent()).catch(() => { });
