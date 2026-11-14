@@ -150,7 +150,7 @@ function downloadBlob(blob, name) {
 let agendaMode = 'lista', showDone = false, calMonth = todayISO().slice(0, 7), selDay = todayISO(), cMode = 'contratos', ce = null;
 
 /* ---------- Router ---------- */
-function route() {
+function route(keepScroll) {
   const h = (location.hash || '#inicio').slice(1);
   const [name, a, b] = h.split('/');
   const tab = { inicio: 'inicio', agenda: 'inicio', bodas: 'bodas', boda: 'bodas', contratos: 'contratos', contrato: 'contratos', plantilla: 'contratos', proveedores: 'proveedores', proveedor: 'proveedores', ajustes: 'ajustes' }[name] || 'inicio';
@@ -158,10 +158,10 @@ function route() {
   const v = $('#view');
   const views = { inicio: viewInicio, agenda: viewInicio, bodas: viewBodas, boda: viewBoda, contratos: viewContratos, contrato: viewContrato, plantilla: viewPlantilla, proveedores: viewProveedores, proveedor: viewProveedor, ajustes: viewAjustes };
   (views[name] || viewInicio)(v, a, b);
-  window.scrollTo(0, 0);
+  if (keepScroll !== true) window.scrollTo(0, 0); // al cambiar de pantalla se sube; al refrescar la misma, se queda donde está
 }
-window.addEventListener('hashchange', route);
-const refresh = () => route();
+window.addEventListener('hashchange', () => route());
+const refresh = () => { const y = window.scrollY; route(true); window.scrollTo(0, y); };
 
 /* ---------- Delegación de eventos ---------- */
 document.addEventListener('click', e => {
@@ -242,6 +242,12 @@ function calendarHTML() {
     <div class="cal">${cells}</div>
     <div class="group">${esc(fmtDate(selDay, { weekday: 'long', day: 'numeric', month: 'long' }))}</div>
     ${sel.length ? sel.map(rowHTML).join('') : '<div class="empty" style="padding:14px">Sin eventos este día</div>'}`;
+}
+
+function moveMonth(n) { // cambia de mes y deja seleccionado el día de hoy (si es ese mes) o el día 1, para que la lista de abajo sea del mes que se ve
+  calMonth = addMonths(calMonth + '-01', n).slice(0, 7);
+  selDay = todayISO().slice(0, 7) === calMonth ? todayISO() : calMonth + '-01';
+  refresh();
 }
 
 /* ---------- Notas de mejora (desplegable en Inicio) ---------- */
@@ -673,7 +679,7 @@ const actions = {
   closeSheet, setUser: id => { localStorage.setItem('eas.user', id); refresh(); },
   agendaMode: id => { agendaMode = id; refresh(); }, toggleDone: () => { showDone = !showDone; refresh(); },
   selDay: id => { selDay = id; refresh(); },
-  calPrev: () => { calMonth = addMonths(calMonth + '-01', -1).slice(0, 7); refresh(); }, calNext: () => { calMonth = addMonths(calMonth + '-01', 1).slice(0, 7); refresh(); },
+  calPrev: () => moveMonth(-1), calNext: () => moveMonth(1),
   newTask: () => taskForm(agendaMode === 'mes' ? { fecha: selDay } : {}), newTaskBoda: id => taskForm({ bodaId: id }),
   editTask: id => taskForm(db.tareas.find(t => t.id === id)),
   toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); if (t.hecha) diarioForm({}, { task: t }); },
