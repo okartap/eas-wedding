@@ -373,12 +373,12 @@ const MENU2 = [['Menú adultos (€/persona)', 'Nº de adultos', 'adultos'], ['M
 const ACOMP2 = [['Precio novia (€)', 'Nº de novias', 'novia'], ['Precio acompañantes (€/persona)', 'Nº de acompañantes', 'acompañantes']];
 const PERSONA_CFG = { Restaurante: MENU2, Catering: MENU2, Recena: MENU2, Maquilladora: ACOMP2, Peluquera: ACOMP2 };
 const PERSONA = Object.keys(PERSONA_CFG);
-const numP = v => { const n = parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; };
+const numP = v => { if (typeof v === 'number') return isFinite(v) ? v : 0; const n = parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; };
 const imp0 = x => numP(x && x.importe);
 const detPersona = (c, x) => {
   const cf = PERSONA_CFG[c], t = [];
-  if (numP(x.nAd)) t.push(numP(x.nAd).toLocaleString('de-DE') + ' ' + cf[0][2] + ' × ' + fmtMoney(numP(x.pAd)));
-  if (numP(x.nNi)) t.push(numP(x.nNi).toLocaleString('de-DE') + ' ' + cf[1][2] + ' × ' + fmtMoney(numP(x.pNi)));
+  if (numP(x.nAd)) t.push(numP(x.nAd).toLocaleString('de-DE') + ' ' + cf[0][2] + ' × ' + fmtMoney(numP(x.pAd)) + (x.pAdD ? ' (' + x.pAdD + ')' : ''));
+  if (numP(x.nNi)) t.push(numP(x.nNi).toLocaleString('de-DE') + ' ' + cf[1][2] + ' × ' + fmtMoney(numP(x.pNi)) + (x.pNiD ? ' (' + x.pNiD + ')' : ''));
   if (numP(x.extra)) t.push('otros ' + fmtMoney(numP(x.extra)));
   return t.join(' + ');
 };
@@ -388,7 +388,7 @@ function totalBlock(b) {
   if (!on.length) return '';
   const tot = on.reduce((t, c) => t + imp0(P[c]), 0);
   return `<details class="dgroup" ${bodaTotOpen ? 'open' : ''} ontoggle="bodaTotOpen=this.open"><summary class="group">Total contratado · ${esc(fmtMoney(tot) || '0 €')}</summary>
-    <div class="card">${on.map(c => { const x = P[c], d = PERSONA.includes(c) ? detPersona(c, x) : ''; return `<div class="kv"><span>${esc(c)}${d ? ' · ' + esc(d) : ''}</span><span>${imp0(x) ? esc(fmtMoney(imp0(x))) : 'sin importe'}</span></div>`; }).join('')}
+    <div class="card">${on.map(c => { const x = P[c], d = PERSONA.includes(c) ? detPersona(c, x) : (x.importeD || ''); return `<div class="kv"><span>${esc(c)}${d ? ' · ' + esc(d) : ''}</span><span>${imp0(x) ? esc(fmtMoney(imp0(x))) : 'sin importe'}</span></div>`; }).join('')}
     <div class="kv"><span><b>Total</b></span><span><b>${esc(fmtMoney(tot) || '0 €')}</b></span></div></div>
     <p class="hint" style="text-align:center">Suma de los importes apuntados en cada proveedor contratado, tal como se escribieron (con o sin IVA).</p>
   </details>`;
@@ -413,23 +413,42 @@ function provBodaForm(bid, i, opt = {}) {
   const cat = PROV_CAT[c], catOk = cat && cats().some(k => k === cat);
   const sel0 = opt.prov || x.provId || (x.nombre ? '__cur' : '');
   const optHTML = p => `<option value="${p.id}">${esc(p.nombre)}${p.ciudad ? ' · ' + esc(p.ciudad) : ''}</option>`;
+  const persona = PERSONA.includes(c), cf = PERSONA_CFG[c];
+  const KEYS = persona ? [['pAd', cf[0][0], 'nAd', cf[0][1]], ['pNi', cf[1][0], 'nNi', cf[1][1]]] : [['importe', 'Tarifa o importe', null, null]];
+  const initT = {}; KEYS.forEach(([k]) => { initT[k] = x[k + 'T'] || (x[k] ? '__otro' : ''); });
+  const ctl = ([k, label, nk, nlabel]) => `<div class="pc"><label class="f"><span>${esc(label)}</span><select name="s_${k}" data-k="${k}"></select></label>
+      <p class="hint" style="text-align:center;margin:-4px 0 8px" data-i="${k}"></p>
+      <div data-o="${k}" style="display:none"><label class="f"><span>Importe (€)</span><input name="v_${k}" inputmode="decimal" value="${esc(initT[k] === '__otro' ? String(x[k] ?? '').replace('.', ',') : '')}"></label>
+      <label class="f"><span>Menú o descripción completa</span><textarea name="d_${k}">${esc(initT[k] === '__otro' ? (x[k + 'D'] || '') : '')}</textarea></label></div>
+      ${nk ? `<label class="f"><span>${esc(nlabel)}</span><input name="${nk}" inputmode="numeric" value="${esc(x[nk] || '')}"></label>` : ''}</div>`;
   const s = openSheet(`<h3>${esc(c)}</h3>
     <form id="pbf" novalidate>
       <label class="f"><span>Proveedor</span><select name="prov" id="pvsel"></select></label>
       <p class="hint" style="text-align:center;margin:-4px 0 10px" id="pvhint"></p>
       <label class="f"><span>Teléfono o contacto</span><input name="tel" value="${esc(x.tel || '')}"></label>
-      ${PERSONA.includes(c) ? `<div class="two"><label class="f"><span>${PERSONA_CFG[c][0][0]}</span><input name="pAd" inputmode="decimal" value="${esc(x.pAd || '')}"></label><label class="f"><span>${PERSONA_CFG[c][0][1]}</span><input name="nAd" inputmode="numeric" value="${esc(x.nAd || '')}"></label></div>
-      <div class="two"><label class="f"><span>${PERSONA_CFG[c][1][0]}</span><input name="pNi" inputmode="decimal" value="${esc(x.pNi || '')}"></label><label class="f"><span>${PERSONA_CFG[c][1][1]}</span><input name="nNi" inputmode="numeric" value="${esc(x.nNi || '')}"></label></div>
-      <label class="f"><span>Otros importes (€, opcional)</span><input name="extra" inputmode="decimal" value="${esc(x.extra || '')}" placeholder="Alquiler de sala, extras…"></label>
-      <p class="hint" style="text-align:center;margin:0 0 10px" id="ptot"></p>`
-      : `<label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${esc(x.importe || '')}" placeholder="Opcional"></label>`}
+      ${KEYS.map(ctl).join('')}
+      ${persona ? `<label class="f"><span>Otros importes (€, opcional)</span><input name="extra" inputmode="decimal" value="${esc(x.extra || '')}" placeholder="Alquiler de sala, extras…"></label>
+      <p class="hint" style="text-align:center;margin:0 0 10px" id="ptot"></p>` : ''}
       <label class="f"><span>Notas</span><textarea name="notas">${esc(x.notas || '')}</textarea></label>
       <div class="btns"><button class="btn" type="submit">${x.on ? 'Guardar' : 'Guardar y marcar contratado'}</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div>
       ${x.on ? `<div class="btns"><button class="btn danger sm" type="button" id="pquit">Quitar como contratado</button></div>` : ''}
     </form>`);
-  const persona = PERSONA.includes(c), calcP = f => numP(f.pAd) * numP(f.nAd) + numP(f.pNi) * numP(f.nNi) + numP(f.extra);
-  if (persona) { const upd = () => { const f = Object.fromEntries(new FormData($('#pbf', s))); $('#ptot', s).innerHTML = 'Total de ' + esc(c.toLowerCase()) + ': <b>' + esc(fmtMoney(calcP(f)) || '0 €') + '</b>'; }; $('#pbf', s).addEventListener('input', upd); upd(); }
-  const sel = $('#pvsel', s), hint = $('#pvhint', s); let all = !catOk || c === 'Otros', prev = sel0;
+  const form = $('#pbf', s), sel = $('#pvsel', s), hint = $('#pvhint', s); let all = !catOk || c === 'Otros', prev = sel0;
+  const curProv = () => provById(sel.value) || null;
+  const tarifaOf = v => String(v || '').startsWith('t:') ? db.tarifas.find(t => t.id === v.slice(2)) : null;
+  const getVal = (f, k) => { const v = f['s_' + k], t = tarifaOf(v); return t ? numP(t.importe) : (v === '__otro' ? numP(f['v_' + k]) : 0); };
+  const calcP = f => KEYS.reduce((t, [k, , nk]) => t + (nk ? getVal(f, k) * numP(f[nk]) : getVal(f, k)), 0) + numP(f.extra);
+  const upd = () => { const f = Object.fromEntries(new FormData(form)); if (persona) $('#ptot', s).innerHTML = 'Total de ' + esc(c.toLowerCase()) + ': <b>' + esc(fmtMoney(calcP(f)) || '0 €') + '</b>'; };
+  const paintPrice = k => {
+    const el = form.elements['s_' + k], pv = curProv(), tf = pv ? tarifasDe(pv.id) : [], keep = el.value || initT[k];
+    el.innerHTML = '<option value="">Elegir tarifa o menú…</option>' + tf.map(t => `<option value="t:${t.id}">${esc(t.concepto || 'Tarifa')}${t.importe != null && t.importe !== '' ? ' · ' + esc(fmtMoney(numP(t.importe))) : ''}</option>`).join('') + '<option value="__otro">＋ Otro importe, solo para esta boda…</option>';
+    el.value = [...el.options].some(o => o.value === keep) ? keep : (tf.length ? '' : '__otro');
+    const t = tarifaOf(el.value);
+    $(`[data-o="${k}"]`, s).style.display = el.value === '__otro' ? '' : 'none';
+    $(`[data-i="${k}"]`, s).innerHTML = t ? (t.nota ? esc(t.nota).replace(/\n/g, '<br>') : '') : el.value === '__otro' ? (pv ? (tf.length ? '' : 'Este proveedor no tiene tarifas guardadas: puedes apuntarlas en su ficha de Proveedores.') : 'Elige primero el proveedor para ver sus tarifas.') : '';
+    upd();
+  };
+  const paintAll = () => KEYS.forEach(([k]) => paintPrice(k));
   const fill = () => {
     const list = db.proveedores.slice().sort((p, q) => (p.nombre || '').localeCompare(q.nombre || '', 'es'));
     let h = '<option value="">Elegir proveedor…</option>';
@@ -444,8 +463,8 @@ function provBodaForm(bid, i, opt = {}) {
     hint.innerHTML = all ? (catOk && c !== 'Otros' ? 'Se muestran todos tus proveedores. <u data-k="cat" style="cursor:pointer">Ver solo «' + esc(cat) + '»</u>' : 'Se muestran todos tus proveedores.')
       : (n ? '' : 'Aún no tienes proveedores de «' + esc(cat) + '». ') + 'Se muestran los de «' + esc(cat) + '». <u data-k="all" style="cursor:pointer">Ver todas las categorías</u>';
   };
-  fill();
-  hint.addEventListener('click', e => { const k = e.target.dataset.k; if (!k) return; all = k === 'all'; prev = sel.value; fill(); });
+  fill(); paintAll();
+  hint.addEventListener('click', e => { const k = e.target.dataset.k; if (!k) return; all = k === 'all'; prev = sel.value; fill(); paintAll(); });
   sel.addEventListener('change', () => {
     if (sel.value === '__new') {
       const keep = prev; sel.value = keep;
@@ -453,23 +472,35 @@ function provBodaForm(bid, i, opt = {}) {
     }
     prev = sel.value; const p = provById(sel.value), t = $('[name=tel]', s);
     if (p && p.tel && !t.value.trim()) t.value = p.tel;
+    KEYS.forEach(([k]) => { form.elements['s_' + k].value = ''; initT[k] = ''; }); paintAll();
   });
-  $('#pbf', s).addEventListener('submit', e => {
+  form.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.k; if (k) paintPrice(k); else upd(); });
+  form.addEventListener('input', upd);
+  form.addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
     const pr = provById(f.prov), nombre = pr ? pr.nombre : (f.prov === '__cur' ? x.nombre : '');
     if (!nombre) { toast('Elige un proveedor de la lista: no se ha marcado'); sel.focus(); return; }
-    let imp = '', extra = {};
-    if (persona) {
-      const cf = PERSONA_CFG[c];
-      for (const [k, l] of [['pAd', cf[0][0]], ['nAd', cf[0][1]], ['pNi', cf[1][0]], ['nNi', cf[1][1]], ['extra', 'Otros importes']]) {
-        if (f[k] && (isNaN(parseFloat(f[k].replace(/\./g, '').replace(',', '.'))) || numP(f[k]) < 0)) { toast('Revisa «' + l + '»: no es un número válido. No se ha marcado'); e.target[k].focus(); return; }
+    const out = {};
+    for (const [k, label, nk, nlabel] of KEYS) {
+      const v = f['s_' + k], t = tarifaOf(v);
+      if (v === '__otro') {
+        if (!f['v_' + k] && !(persona && !numP(f[nk]))) { toast('Falta el importe de «' + label + '». No se ha marcado'); e.target['v_' + k].focus(); return; }
+        if (f['v_' + k] && (isNaN(parseFloat(f['v_' + k].replace(/\./g, '').replace(',', '.'))) || numP(f['v_' + k]) < 0)) { toast('El importe de «' + label + '» no es válido. No se ha marcado'); e.target['v_' + k].focus(); return; }
       }
-      if ((numP(f.nAd) && !numP(f.pAd)) || (numP(f.pAd) && !numP(f.nAd))) { toast('Faltan el precio o el número en «' + cf[0][2] + '». No se ha marcado'); return; }
-      if ((numP(f.nNi) && !numP(f.pNi)) || (numP(f.pNi) && !numP(f.nNi))) { toast('Faltan el precio o el número en «' + cf[1][2] + '». No se ha marcado'); return; }
-      extra = { pAd: f.pAd, nAd: f.nAd, pNi: f.pNi, nNi: f.nNi, extra: f.extra }; imp = calcP(f);
-    } else if (f.importe) { imp = parseFloat(f.importe.replace(/\./g, '').replace(',', '.')); if (isNaN(imp) || imp < 0) { toast('El importe no es válido: no se ha marcado'); e.target.importe.focus(); return; } }
+      const val = getVal(f, k);
+      if (nk) {
+        if (f[nk] && (isNaN(parseInt(f[nk], 10)) || numP(f[nk]) < 0)) { toast('Revisa «' + nlabel + '»: no es un número válido. No se ha marcado'); e.target[nk].focus(); return; }
+        if (numP(f[nk]) && !val) { toast('Falta elegir el precio de «' + label + '». No se ha marcado'); return; }
+        if (val && !numP(f[nk])) { toast('Falta «' + nlabel + '». No se ha marcado'); e.target[nk].focus(); return; }
+        out[nk] = f[nk];
+      }
+      out[k] = String(val || '').replace('.', ','); out[k + 'T'] = v; out[k + 'D'] = t ? (t.concepto || '') : (v === '__otro' ? f['d_' + k] : '');
+    }
+    if (persona) { if (f.extra && (isNaN(parseFloat(f.extra.replace(/\./g, '').replace(',', '.'))) || numP(f.extra) < 0)) { toast('Revisa «Otros importes»: no es un número válido. No se ha marcado'); e.target.extra.focus(); return; } out.extra = f.extra; }
+    const imp = calcP(f);
+    if (!persona) { out.importe = getVal(f, 'importe'); }
     if (f.tel && f.tel.replace(/\D/g, '').length < 6 && /^[\d\s+()-]+$/.test(f.tel)) { toast('El teléfono parece incompleto: no se ha marcado'); e.target.tel.focus(); return; }
-    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, importe: imp, notas: f.notas, ...extra };
+    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, notas: f.notas, ...out, importe: persona ? imp : out.importe };
     log('Marcó «' + c + '» como contratado en la boda de ' + coupleName(b) + ' (' + nombre + ')'); save(); closeSheet(); bodaProvOpen = true; refresh(); toast(c + ' marcado como contratado');
   });
   const q = $('#pquit', s);
