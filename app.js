@@ -416,14 +416,14 @@ function viewBoda(v, id) {
 function contratoRow(c) {
   const b = bodaById(c.bodaId);
   return `<div class="card link" data-act="openContrato" data-id="${c.id}"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center">
-    <div><div class="name" style="text-align:left;font-size:17px">${esc(coupleName(b))}</div><div class="muted" style="font-size:13px">${esc(fmtDate(c.campos.fecha_contrato, { day: 'numeric', month: 'short', year: 'numeric' }))}${c.campos.precio_total ? ' · ' + esc(c.campos.precio_total) : ''}</div></div>
+    <div><div class="name" style="font-size:17px">${esc(coupleName(b))}</div><div class="muted" style="font-size:13px">${esc(fmtDate(c.campos.fecha_contrato, { day: 'numeric', month: 'short', year: 'numeric' }))}${c.campos.precio_total ? ' · ' + esc(c.campos.precio_total) : ''}</div></div>
     <span class="tag ${c.firmado ? 'ok' : ''}">${c.firmado ? 'Firmado por mí' : 'Sin firma'}</span></div></div>`;
 }
 function viewContratos(v) {
   v.innerHTML = `<h1>Contratos</h1><p class="sub">Genera el PDF con tus datos y los de los clientes</p>
     <div class="seg"><button class="${cMode === 'contratos' ? 'on' : ''}" data-act="cMode" data-id="contratos">Contratos</button><button class="${cMode === 'plantillas' ? 'on' : ''}" data-act="cMode" data-id="plantillas">Plantillas</button></div>
     ${cMode === 'contratos' ? (db.contratos.length ? [...db.contratos].reverse().map(contratoRow).join('') : '<div class="empty">Aún no hay contratos.</div>') + `<div class="btns"><button class="btn" data-act="newContrato">+ Nuevo contrato</button></div>`
-      : db.plantillas.map(p => `<div class="card link" data-act="openPlantilla" data-id="${p.id}"><div class="name" style="text-align:left;font-size:17px">${esc(p.nombre)}</div></div>`).join('') + `<div class="btns"><label class="btn" style="cursor:pointer">Importar mi contrato (Word / PDF)<input type="file" accept=".docx,.pdf,.txt,application/pdf" id="impc" hidden></label><button class="btn ghost" data-act="newPlantilla">+ Plantilla en blanco</button></div><p class="hint">Sube uno de tus contratos, convierte los datos de los novios en variables y quedará como plantilla para los siguientes.</p>`}`;
+      : db.plantillas.map(p => `<div class="card link" data-act="openPlantilla" data-id="${p.id}"><div class="name" style="font-size:17px">${esc(p.nombre)}</div></div>`).join('') + `<div class="btns"><label class="btn" style="cursor:pointer">Importar mi contrato (Word / PDF)<input type="file" accept=".docx,.pdf,.txt,application/pdf" id="impc" hidden></label><button class="btn ghost" data-act="newPlantilla">+ Plantilla en blanco</button></div><p class="hint">Sube uno de tus contratos, convierte los datos de los novios en variables y quedará como plantilla para los siguientes.</p>`}`;
   const imp = $('#impc', v); if (imp) imp.onchange = e => { const f = e.target.files[0]; if (f) importContrato(f); };
 }
 const loadScript = src => new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = rej; document.head.appendChild(el); });
@@ -943,7 +943,7 @@ function tarifaForm(provId, t = {}) {
     <label class="f"><span>Notas</span><textarea name="nota">${esc(t.nota || '')}</textarea></label>
     <label class="f"><span>Enlace (Drive u otro)</span><input name="enlace" value="${esc(t.enlace || '')}" placeholder="https://drive.google.com/…"></label>
     <details class="hint" style="margin:-4px 0 12px"><summary style="cursor:pointer;text-align:center">¿Cómo consigo el enlace de Drive?</summary>
-      <div style="text-align:left;margin-top:8px">
+      <div style="margin-top:8px">
         <b>1. Sube el dosier a Drive</b> (si aún no está): abre la app Google Drive, pulsa <b>+</b>, luego <b>Subir</b> y elige el archivo.<br>
         <b>2. Copia el enlace:</b> junto al archivo pulsa los <b>tres puntos ⋮</b> y elige <b>Copiar enlace</b>.<br>
         <b>3. Pégalo aquí:</b> toca el campo «Enlace», mantén pulsado y elige <b>Pegar</b>.<br>

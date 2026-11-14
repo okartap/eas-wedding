@@ -149,3 +149,14 @@ input[type=date],input[type=time]{min-height:48px;text-align:center;display:bloc
 .vbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;border-bottom:1px solid #0001}
 .vbar b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 .viewer iframe{flex:1;border:0;width:100%}.vimg{flex:1;overflow:auto;text-align:center}.vimg img{max-width:100%}
+
+/* Todo centrado */
+.f>span{text-align:center}
+input,select,textarea{text-align:center}
+select{text-align-last:center}
+textarea.mono,textarea.doc{text-align:left}
+.row .main{text-align:center}
+.kv{flex-direction:column;align-items:center;text-align:center;gap:3px}
+.kv span:last-child{text-align:center}
+.check{justify-content:center}
+#toast{text-align:center}
