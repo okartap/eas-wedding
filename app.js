@@ -104,7 +104,7 @@ const servicioTexto = n => { const sv = SERVICIOS[n] || SERVICIOS[SERV_DEF]; ret
 
 /* ---------- Datos ---------- */
 function defaults() {
-  return { v: 1, profile: { marca: 'Ea’s Wedding' }, bodas: [], tareas: [], contratos: [], notas: [], historial: [], proveedores: [], tarifas: [],
+  return { v: 1, profile: { marca: 'Ea’s Wedding' }, bodas: [], tareas: [], contratos: [], notas: [], historial: [], proveedores: [], tarifas: [], diario: [],
     plantillas: [{ id: 'base', nombre: 'Servicios de wedding planner', texto: TPL_BASE }] };
 }
 let db;
@@ -115,7 +115,7 @@ function load() {
 function localSave() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('No se pudo guardar (almacenamiento lleno)'); } }
 function save() { localSave(); Sync.push(); }
 load();
-db.historial ||= []; db.proveedores ||= []; db.tarifas ||= [];
+db.historial ||= []; db.proveedores ||= []; db.tarifas ||= []; db.diario ||= [];
 function currentUser() { const u = localStorage.getItem('eas.user'); return USERS.includes(u) ? u : 'Andrea'; }
 function log(texto) { db.historial.push({ id: uid(), fecha: new Date().toISOString(), usuario: currentUser(), texto }); if (db.historial.length > 400) db.historial = db.historial.slice(-300); }
 
@@ -219,7 +219,8 @@ function viewInicio(v) {
     <p class="hint" style="margin-top:0">Usuario actual: <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''}</p>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}
-    ${notasHTML().replace('margin-top:26px','margin-top:4px;margin-bottom:18px')}
+    ${diarioGeneralHTML().replace('margin:0 0 18px','margin:4px 0 10px')}
+    ${notasHTML().replace('margin-top:26px','margin-top:0;margin-bottom:18px')}
     <div class="seg"><button class="${agendaMode === 'lista' ? 'on' : ''}" data-act="agendaMode" data-id="lista">Lista</button><button class="${agendaMode === 'mes' ? 'on' : ''}" data-act="agendaMode" data-id="mes">Mes</button></div>
     ${body}
     <button class="fab" data-act="newTask" aria-label="Nueva tarea">+</button>`;
@@ -270,6 +271,47 @@ function notaForm(n) {
     if (n) { n.tipo = f.get('tipo'); n.texto = f.get('texto').trim(); }
     else db.notas.push({ id: uid(), tipo: f.get('tipo'), texto: f.get('texto').trim(), autor: currentUser(), fecha: new Date().toISOString(), hecha: false });
     log((n ? 'Editó' : 'Añadió') + ' una nota de mejora'); save(); closeSheet(); notasOpen = true; refresh();
+  });
+}
+
+/* ---------- Diario (notas de lo hecho, visto o decidido) ---------- */
+const DIARIO_TIPOS = ['cita', 'llamada', 'visita']; // al completar estos tipos se pregunta qué se ha hecho o decidido
+let diarioOpen = false;
+const diarioDe = bodaId => db.diario.filter(e => (e.bodaId || '') === (bodaId || '')).sort((x, y) => y.fecha.localeCompare(x.fecha) || (y.ts || '').localeCompare(x.ts || ''));
+function diarioRow(e) {
+  const sub = [fmtDate(e.fecha, { weekday: 'short', day: 'numeric', month: 'short' }), e.tarea ? '«' + e.tarea + '»' : '', e.autor].filter(Boolean).join(' · ');
+  return `<div class="row" data-act="editDiario" data-id="${e.id}" style="align-items:flex-start"><div class="main"><div class="t" style="white-space:pre-wrap;overflow:visible">${esc(e.texto)}</div><div class="s">${esc(sub)}</div></div></div>`;
+}
+function diarioHTML(bodaId) {
+  const l = diarioDe(bodaId);
+  return `${l.length ? l.map(diarioRow).join('') : '<div class="empty" style="padding:10px">Aún no hay notas. Aquí quedará lo que se haga, se vea o se decida.</div>'}
+    <div class="btns"><button class="btn sm ghost" data-act="newDiario" data-id="${bodaId || ''}">+ Apuntar</button></div>`;
+}
+function diarioGeneralHTML() {
+  const n = diarioDe('').length;
+  return `<details class="card" style="margin:0 0 18px" ${diarioOpen ? 'open' : ''} ontoggle="diarioOpen=this.open">
+    <summary style="cursor:pointer;text-align:center;font-family:var(--serif);font-size:17px;list-style:none">Diario general${n ? ` · ${n}` : ''}</summary>
+    <p class="hint">Notas que no son de ninguna boda en concreto. Las de cada boda están en su ficha.</p>${diarioHTML('')}</details>`;
+}
+function diarioForm(e = {}, o = {}) {
+  const task = o.task, edit = !!e.id;
+  const fixedBoda = task ? (task.bodaId || null) : (o.bodaId || null); // si ya se sabe la boda, no se pregunta
+  const bodaSel = edit || fixedBoda === null
+    ? `<label class="f"><span>Boda</span><select name="bodaId"><option value="">Ninguna (diario general)</option>${db.bodas.map(b => `<option value="${b.id}" ${(edit ? e.bodaId : '') === b.id ? 'selected' : ''}>${esc(coupleName(b))}</option>`).join('')}</select></label>`
+    : `<input type="hidden" name="bodaId" value="${esc(fixedBoda)}">`;
+  const ctx = task ? `<p class="hint" style="margin-top:0">Completada: <b>${esc(task.titulo)}</b>${task.bodaId ? ' · ' + esc(coupleName(bodaById(task.bodaId))) : ''}</p>` : '';
+  const s = openSheet(`<h3>${task ? '¿Qué se ha hecho o decidido?' : edit ? 'Editar nota' : 'Nueva nota del diario'}</h3>${ctx}
+    <form id="df"><label class="f"><span>Nota</span><textarea name="texto" ${task ? '' : 'required'} placeholder="Ej.: Visitamos la finca; les gustó el jardín. Deciden esperar al presupuesto.">${esc(e.texto || '')}</textarea></label>
+    <label class="f"><span>Día</span><input type="date" name="fecha" required value="${esc(e.fecha || todayISO())}"></label>${bodaSel}
+    <div class="btns"><button class="btn" type="submit">Guardar</button>${edit ? `<button class="btn danger" type="button" data-act="delDiario" data-id="${e.id}">Eliminar</button>` : ''}<button class="btn ghost" type="button" data-act="closeSheet">${task ? 'Omitir' : 'Cancelar'}</button></div></form>`);
+  $('#df', s).addEventListener('submit', ev => {
+    ev.preventDefault(); const f = new FormData(ev.target); const texto = f.get('texto').trim();
+    if (!texto) { closeSheet(); return; } // completando sin escribir nada = omitir
+    const bodaId = f.get('bodaId') || '';
+    if (edit) Object.assign(e, { texto, fecha: f.get('fecha'), bodaId });
+    else db.diario.push({ id: uid(), fecha: f.get('fecha'), ts: new Date().toISOString(), bodaId, tareaId: task?.id || '', tarea: task?.titulo || '', texto, autor: currentUser() });
+    log((edit ? 'Editó' : 'Añadió') + ' una nota del diario' + (bodaId ? ' de ' + coupleName(bodaById(bodaId)) : ''));
+    save(); closeSheet(); if (!bodaId) diarioOpen = true; toast('Nota guardada'); refresh();
   });
 }
 
@@ -342,7 +384,8 @@ function crearHitos(b) {
   (SERVICIOS[b.servicio] || SERVICIOS[SERV_DEF]).hitos.forEach(([w, titulo]) => {
     let f = typeof w === 'number' ? addMonths(b.fecha, w) : addDays(b.fecha, parseInt(w.slice(1), 10));
     if (f < t) f = t;
-    db.tareas.push({ id: uid(), titulo, fecha: f, hora: '', tipo: 'tarea', asignado: 'Ambos', bodaId: b.id, hecha: false, notas: '' });
+    const tipo = /^Reuni/i.test(titulo) ? 'cita' : /visit|prueba|revisi[óo]n del espacio/i.test(titulo) ? 'visita' : 'tarea'; // reuniones y visitas piden nota al completarse
+    db.tareas.push({ id: uid(), titulo, fecha: f, hora: '', tipo, asignado: 'Ambos', bodaId: b.id, hecha: false, notas: '' });
   });
 }
 function viewBoda(v, id) {
@@ -359,6 +402,7 @@ function viewBoda(v, id) {
     <div class="btns"><button class="btn ghost sm" data-act="editBoda" data-id="${id}">Editar</button><button class="btn danger sm" data-act="delBoda" data-id="${id}">Eliminar</button></div>
     <h2>Contratos</h2>${cs.length ? cs.map(contratoRow).join('') : '<div class="empty" style="padding:10px">Sin contratos</div>'}
     <div class="btns"><a class="btn sm" href="#contrato/nuevo/${id}">+ Nuevo contrato</a></div>
+    <h2>Diario</h2>${diarioHTML(id)}
     <h2>Tareas</h2>${ts.length ? ts.map(t => rowHTML({ ...t, kind: 't', bodaId: null })).join('') : '<div class="empty" style="padding:10px">Sin tareas</div>'}
     <div class="btns"><button class="btn sm ghost" data-act="newTaskBoda" data-id="${id}">+ Tarea</button>${b.fecha ? `<button class="btn sm ghost" data-act="hitosBoda" data-id="${id}">Añadir hitos automáticos</button>` : ''}</div>`;
 }
@@ -633,15 +677,17 @@ const actions = {
   calPrev: () => { calMonth = addMonths(calMonth + '-01', -1).slice(0, 7); refresh(); }, calNext: () => { calMonth = addMonths(calMonth + '-01', 1).slice(0, 7); refresh(); },
   newTask: () => taskForm(agendaMode === 'mes' ? { fecha: selDay } : {}), newTaskBoda: id => taskForm({ bodaId: id }),
   editTask: id => taskForm(db.tareas.find(t => t.id === id)),
-  toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); },
+  toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); if (t.hecha && DIARIO_TIPOS.includes(t.tipo)) diarioForm({}, { task: t }); },
   delTask: id => { const t = db.tareas.find(x => x.id === id); log('Eliminó la tarea «' + t?.titulo + '»'); db.tareas = db.tareas.filter(t => t.id !== id); save(); closeSheet(); refresh(); },
+  newDiario: id => diarioForm({}, { bodaId: id || '' }), editDiario: id => diarioForm(db.diario.find(e => e.id === id), {}),
+  delDiario: id => { if (!confirm('¿Borrar esta nota del diario?')) return; db.diario = db.diario.filter(e => e.id !== id); log('Borró una nota del diario'); save(); closeSheet(); refresh(); },
   newNota: () => notaForm(), editNota: id => notaForm(db.notas.find(n => n.id === id)),
   toggleNota: id => { const n = db.notas.find(x => x.id === id); n.hecha = !n.hecha; save(); notasOpen = true; refresh(); },
   delNota: id => { if (!confirm('¿Borrar esta nota?')) return; db.notas = db.notas.filter(n => n.id !== id); save(); notasOpen = true; refresh(); },
   copyNota: id => copyText(notaLine(db.notas.find(n => n.id === id))),
   copyNotas: () => copyText(`Mejoras y fallos de Ea’s Wedding\n${db.notas.filter(n => !n.hecha).map(notaLine).join('\n')}`),
   newBoda: () => bodaForm(), openBoda: id => { location.hash = '#boda/' + id; }, editBoda: id => bodaForm(bodaById(id)),
-  delBoda: id => { if (!confirm('¿Eliminar esta boda con sus tareas y contratos?')) return; log('Eliminó la boda de ' + coupleName(bodaById(id))); db.bodas = db.bodas.filter(b => b.id !== id); db.tareas = db.tareas.filter(t => t.bodaId !== id); db.contratos = db.contratos.filter(c => c.bodaId !== id); save(); location.hash = '#bodas'; },
+  delBoda: id => { if (!confirm('¿Eliminar esta boda con sus tareas, contratos y diario?')) return; log('Eliminó la boda de ' + coupleName(bodaById(id))); db.bodas = db.bodas.filter(b => b.id !== id); db.tareas = db.tareas.filter(t => t.bodaId !== id); db.contratos = db.contratos.filter(c => c.bodaId !== id); db.diario = db.diario.filter(e => e.bodaId !== id); save(); location.hash = '#bodas'; },
   demoBoda: () => {
     const rec = { id: uid(), n1: 'Laura (ejemplo)', dni1: '', n2: 'Carlos (ejemplo)', dni2: '', email: 'ejemplo@correo.com', tel: '600 000 000', dir: 'Calle Ejemplo 1, Murcia',
       fecha: addMonths(todayISO(), 5), lugar: 'Finca de ejemplo', servicio: 'Organización Integral', estado: 'Contratada', notas: 'Boda de prueba. Se puede eliminar.' };

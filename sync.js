@@ -2,7 +2,7 @@
 /* Sincronización entre dispositivos con Firebase (Auth + Firestore). Si no hay configuración, no hace nada. */
 const Sync = (() => {
   const cfg = window.EAS_FIREBASE || {};
-  const COLS = ['bodas', 'tareas', 'contratos', 'notas', 'plantillas', 'historial', 'proveedores', 'tarifas'];
+  const COLS = ['bodas', 'tareas', 'contratos', 'notas', 'plantillas', 'historial', 'proveedores', 'tarifas', 'diario'];
   const S = { user: null, status: '', enabled: !!(cfg.apiKey && cfg.projectId && window.firebase) };
   const stable = o => JSON.stringify(o, (k, v) => v && typeof v === 'object' && !Array.isArray(v) ? Object.keys(v).sort().reduce((a, x) => (a[x] = v[x], a), {}) : v);
   const clean = o => JSON.parse(JSON.stringify(o));
