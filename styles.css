@@ -7,15 +7,7 @@
   --serif:"Noto Serif Display","Iowan Old Style",Georgia,"Times New Roman",serif;
   --sans:"Work Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
 }
-@media (prefers-color-scheme:dark){
-  :root{
-    --bg:#1D1914; --card:#26211B; --line:#3A332A; --mist:#2E2820;
-    --text:#EADFCD; --muted:#A89C84; --slate:#A89C84;
-    --accent:#C48C76; --on-accent:#1D1914;
-    --danger:#D98A78; --ok:#8DBB9D;
-  }
-  .logo{filter:brightness(2.4) contrast(.85)}
-}
+:root{color-scheme:light}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.4}
 #app{max-width:680px;margin:0 auto;min-height:100vh;min-height:100dvh}
