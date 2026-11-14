@@ -373,6 +373,9 @@ const MENU2 = [['Menú adultos (€/persona)', 'Nº de adultos', 'adultos'], ['M
 const ACOMP2 = [['Precio novia (€)', 'Nº de novias', 'novia'], ['Precio acompañantes (€/persona)', 'Nº de acompañantes', 'acompañantes']];
 const PERSONA_CFG = { Restaurante: MENU2, Catering: MENU2, Recena: MENU2, Maquilladora: ACOMP2, Peluquera: ACOMP2 };
 const PERSONA = Object.keys(PERSONA_CFG);
+const MODO = ['Finca', 'Mesa dulce'];
+const IVA_PCT = 21;
+const ivaTxt = x => (x && x.mas ? ' + IVA ' + IVA_PCT + ' %' : '');
 const numP = v => { if (typeof v === 'number') return isFinite(v) ? v : 0; const n = parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; };
 const imp0 = x => numP(x && x.importe);
 const detPersona = (c, x) => {
@@ -388,9 +391,9 @@ function totalBlock(b) {
   if (!on.length) return '';
   const tot = on.reduce((t, c) => t + imp0(P[c]), 0);
   return `<details class="dgroup" ${bodaTotOpen ? 'open' : ''} ontoggle="bodaTotOpen=this.open"><summary class="group">Total contratado · ${esc(fmtMoney(tot) || '0 €')}</summary>
-    <div class="card">${on.map(c => { const x = P[c], d = PERSONA.includes(c) ? detPersona(c, x) : (x.importeD || ''); return `<div class="kv"><span>${esc(c)}${d ? ' · ' + esc(d) : ''}</span><span>${imp0(x) ? esc(fmtMoney(imp0(x))) : 'sin importe'}</span></div>`; }).join('')}
+    <div class="card">${on.map(c => { const x = P[c], d = (PERSONA.includes(c) ? detPersona(c, x) : x.modo === 'persona' ? (numP(x.nAd).toLocaleString('de-DE') + ' personas × ' + fmtMoney(numP(x.pAd)) + (x.pAdD ? ' (' + x.pAdD + ')' : '')) : (x.importeD || '')) + ivaTxt(x); return `<div class="kv"><span>${esc(c)}${d ? ' · ' + esc(d) : ''}</span><span>${imp0(x) ? esc(fmtMoney(imp0(x))) : 'sin importe'}</span></div>`; }).join('')}
     <div class="kv"><span><b>Total</b></span><span><b>${esc(fmtMoney(tot) || '0 €')}</b></span></div></div>
-    <p class="hint" style="text-align:center">Suma de los importes apuntados en cada proveedor contratado, tal como se escribieron (con o sin IVA).</p>
+    <p class="hint" style="text-align:center">Suma de los importes apuntados en cada proveedor contratado, con el IVA ya incluido cuando se ha marcado «sin IVA».</p>
   </details>`;
 }
 function provBlock(b) {
@@ -413,22 +416,27 @@ function provBodaForm(bid, i, opt = {}) {
   const cat = PROV_CAT[c], catOk = cat && cats().some(k => k === cat);
   const sel0 = opt.prov || x.provId || (x.nombre ? '__cur' : '');
   const optHTML = p => `<option value="${p.id}">${esc(p.nombre)}${p.ciudad ? ' · ' + esc(p.ciudad) : ''}</option>`;
-  const persona = PERSONA.includes(c), cf = PERSONA_CFG[c];
-  const KEYS = persona ? [['pAd', cf[0][0], 'nAd', cf[0][1]], ['pNi', cf[1][0], 'nNi', cf[1][1]]] : [['importe', 'Tarifa o importe', null, null]];
+  const persona0 = PERSONA.includes(c), conModo = MODO.includes(c), cf = PERSONA_CFG[c];
+  let modo = conModo && x.modo === 'persona' ? 'persona' : 'total';
+  const persona = () => persona0 || (conModo && modo === 'persona');
+  const KEYS = persona0 ? [['pAd', cf[0][0], 'nAd', cf[0][1]], ['pNi', cf[1][0], 'nNi', cf[1][1]]] : (conModo ? [['importe', 'Tarifa o importe', null, null, 'total'], ['pAd', 'Precio por persona', 'nAd', 'Nº de personas', 'persona']] : [['importe', 'Tarifa o importe', null, null]]);
+  const act = () => KEYS.filter(k => !k[4] || k[4] === modo);
   const initT = {}; KEYS.forEach(([k]) => { initT[k] = x[k + 'T'] || (x[k] ? '__otro' : ''); });
-  const ctl = ([k, label, nk, nlabel]) => `<div class="pc"><label class="f"><span>${esc(label)}</span><select name="s_${k}" data-k="${k}"></select></label>
+  const ctl = ([k, label, nk, nlabel, m]) => `<div class="pc" ${m ? 'data-m="' + m + '" style="display:' + (m === modo ? '' : 'none') + '"' : ''}><label class="f"><span>${esc(label)}</span><select name="s_${k}" data-k="${k}"></select></label>
       <p class="hint" style="text-align:center;margin:-4px 0 8px" data-i="${k}"></p>
       <div data-o="${k}" style="display:none"><label class="f"><span>Importe (€)</span><input name="v_${k}" inputmode="decimal" value="${esc(initT[k] === '__otro' ? String(x[k] ?? '').replace('.', ',') : '')}"></label>
       <label class="f"><span>Menú o descripción completa</span><textarea name="d_${k}">${esc(initT[k] === '__otro' ? (x[k + 'D'] || '') : '')}</textarea></label></div>
-      ${nk ? `<label class="f"><span>${esc(nlabel)}</span><input name="${nk}" inputmode="numeric" value="${esc(x[nk] || '')}"></label>` : ''}</div>`;
+      ${nk ? `<label class="f"><span>${esc(nlabel)}</span><input name="${nk}" inputmode="numeric" value="${esc(x[nk] || (conModo ? (b.invitados || '') : ''))}"></label>` : ''}</div>`;
   const s = openSheet(`<h3>${esc(c)}</h3>
     <form id="pbf" novalidate>
       <label class="f"><span>Proveedor</span><select name="prov" id="pvsel"></select></label>
       <p class="hint" style="text-align:center;margin:-4px 0 10px" id="pvhint"></p>
       <label class="f"><span>Teléfono o contacto</span><input name="tel" value="${esc(x.tel || '')}"></label>
+      ${conModo ? `<label class="f"><span>Cómo se cobra</span><select name="modo"><option value="total">Importe total</option><option value="persona">Por persona</option></select></label>` : ''}
       ${KEYS.map(ctl).join('')}
-      ${persona ? `<label class="f"><span>Otros importes (€, opcional)</span><input name="extra" inputmode="decimal" value="${esc(x.extra || '')}" placeholder="Alquiler de sala, extras…"></label>
-      <p class="hint" style="text-align:center;margin:0 0 10px" id="ptot"></p>` : ''}
+      ${persona0 ? `<label class="f"><span>Otros importes (€, opcional)</span><input name="extra" inputmode="decimal" value="${esc(x.extra || '')}" placeholder="Alquiler de sala, extras…"></label>` : ''}
+      <label style="display:flex;justify-content:center;align-items:center;gap:8px;margin:4px 0 10px;font-size:14px"><input type="checkbox" name="mas" ${x.mas ? 'checked' : ''}> El importe es sin IVA (sumar el ${IVA_PCT} %)</label>
+      <p class="hint" style="text-align:center;margin:0 0 10px" id="ptot"></p>
       <label class="f"><span>Notas</span><textarea name="notas">${esc(x.notas || '')}</textarea></label>
       <div class="btns"><button class="btn" type="submit">${x.on ? 'Guardar' : 'Guardar y marcar contratado'}</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div>
       ${x.on ? `<div class="btns"><button class="btn danger sm" type="button" id="pquit">Quitar como contratado</button></div>` : ''}
@@ -437,8 +445,9 @@ function provBodaForm(bid, i, opt = {}) {
   const curProv = () => provById(sel.value) || null;
   const tarifaOf = v => String(v || '').startsWith('t:') ? db.tarifas.find(t => t.id === v.slice(2)) : null;
   const getVal = (f, k) => { const v = f['s_' + k], t = tarifaOf(v); return t ? numP(t.importe) : (v === '__otro' ? numP(f['v_' + k]) : 0); };
-  const calcP = f => KEYS.reduce((t, [k, , nk]) => t + (nk ? getVal(f, k) * numP(f[nk]) : getVal(f, k)), 0) + numP(f.extra);
-  const upd = () => { const f = Object.fromEntries(new FormData(form)); if (persona) $('#ptot', s).innerHTML = 'Total de ' + esc(c.toLowerCase()) + ': <b>' + esc(fmtMoney(calcP(f)) || '0 €') + '</b>'; };
+  const calcP = f => act().reduce((t, [k, , nk]) => t + (nk ? getVal(f, k) * numP(f[nk]) : getVal(f, k)), 0) + numP(f.extra);
+  const calcT = f => { const bs = calcP(f); return f.mas ? Math.round(bs * (1 + IVA_PCT / 100) * 100) / 100 : bs; };
+  const upd = () => { const f = Object.fromEntries(new FormData(form)); const bs = calcP(f), t = calcT(f); $('#ptot', s).innerHTML = bs ? ('Total de ' + esc(c.toLowerCase()) + ': <b>' + esc(fmtMoney(t) || '0 €') + '</b>' + (f.mas ? '<br>' + esc(fmtMoney(bs)) + ' + IVA ' + IVA_PCT + ' % (' + esc(fmtMoney(t - bs)) + ')' : '')) : ''; };
   const paintPrice = k => {
     const el = form.elements['s_' + k], pv = curProv(), tf = pv ? tarifasDe(pv.id) : [], keep = el.value || initT[k];
     el.innerHTML = '<option value="">Elegir tarifa o menú…</option>' + tf.map(t => `<option value="t:${t.id}">${esc(t.concepto || 'Tarifa')}${t.importe != null && t.importe !== '' ? ' · ' + esc(fmtMoney(numP(t.importe))) : ''}</option>`).join('') + '<option value="__otro">＋ Otro importe, solo para esta boda…</option>';
@@ -449,6 +458,7 @@ function provBodaForm(bid, i, opt = {}) {
     upd();
   };
   const paintAll = () => KEYS.forEach(([k]) => paintPrice(k));
+  if (conModo) form.elements.modo.value = modo;
   const fill = () => {
     const list = db.proveedores.slice().sort((p, q) => (p.nombre || '').localeCompare(q.nombre || '', 'es'));
     let h = '<option value="">Elegir proveedor…</option>';
@@ -474,17 +484,20 @@ function provBodaForm(bid, i, opt = {}) {
     if (p && p.tel && !t.value.trim()) t.value = p.tel;
     KEYS.forEach(([k]) => { form.elements['s_' + k].value = ''; initT[k] = ''; }); paintAll();
   });
-  form.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.k; if (k) paintPrice(k); else upd(); });
+  form.addEventListener('change', e => {
+    if (e.target.name === 'modo') { modo = e.target.value; form.querySelectorAll('[data-m]').forEach(d => d.style.display = d.dataset.m === modo ? '' : 'none'); upd(); return; }
+    const k = e.target.dataset && e.target.dataset.k; if (k) paintPrice(k); else upd();
+  });
   form.addEventListener('input', upd);
   form.addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
     const pr = provById(f.prov), nombre = pr ? pr.nombre : (f.prov === '__cur' ? x.nombre : '');
     if (!nombre) { toast('Elige un proveedor de la lista: no se ha marcado'); sel.focus(); return; }
     const out = {};
-    for (const [k, label, nk, nlabel] of KEYS) {
+    for (const [k, label, nk, nlabel] of act()) {
       const v = f['s_' + k], t = tarifaOf(v);
       if (v === '__otro') {
-        if (!f['v_' + k] && !(persona && !numP(f[nk]))) { toast('Falta el importe de «' + label + '». No se ha marcado'); e.target['v_' + k].focus(); return; }
+        if (!f['v_' + k] && !(persona() && !numP(f[nk]))) { toast('Falta el importe de «' + label + '». No se ha marcado'); e.target['v_' + k].focus(); return; }
         if (f['v_' + k] && (isNaN(parseFloat(f['v_' + k].replace(/\./g, '').replace(',', '.'))) || numP(f['v_' + k]) < 0)) { toast('El importe de «' + label + '» no es válido. No se ha marcado'); e.target['v_' + k].focus(); return; }
       }
       const val = getVal(f, k);
@@ -496,11 +509,10 @@ function provBodaForm(bid, i, opt = {}) {
       }
       out[k] = String(val || '').replace('.', ','); out[k + 'T'] = v; out[k + 'D'] = t ? (t.concepto || '') : (v === '__otro' ? f['d_' + k] : '');
     }
-    if (persona) { if (f.extra && (isNaN(parseFloat(f.extra.replace(/\./g, '').replace(',', '.'))) || numP(f.extra) < 0)) { toast('Revisa «Otros importes»: no es un número válido. No se ha marcado'); e.target.extra.focus(); return; } out.extra = f.extra; }
-    const imp = calcP(f);
-    if (!persona) { out.importe = getVal(f, 'importe'); }
+    if (persona0) { if (f.extra && (isNaN(parseFloat(f.extra.replace(/\./g, '').replace(',', '.'))) || numP(f.extra) < 0)) { toast('Revisa «Otros importes»: no es un número válido. No se ha marcado'); e.target.extra.focus(); return; } out.extra = f.extra; }
+    const base = calcP(f), imp = calcT(f);
     if (f.tel && f.tel.replace(/\D/g, '').length < 6 && /^[\d\s+()-]+$/.test(f.tel)) { toast('El teléfono parece incompleto: no se ha marcado'); e.target.tel.focus(); return; }
-    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, notas: f.notas, ...out, importe: persona ? imp : out.importe };
+    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, notas: f.notas, ...out, modo: conModo ? modo : undefined, mas: !!f.mas, base, importe: imp };
     log('Marcó «' + c + '» como contratado en la boda de ' + coupleName(b) + ' (' + nombre + ')'); save(); closeSheet(); bodaProvOpen = true; refresh(); toast(c + ' marcado como contratado');
   });
   const q = $('#pquit', s);
