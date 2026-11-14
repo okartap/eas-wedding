@@ -178,7 +178,7 @@ function allItems() {
 }
 function rowHTML(it) {
   const b = it.bodaId ? bodaById(it.bodaId) : null;
-  const sub = [it.hora, it.kind === 'b' ? '' : (b ? coupleName(b) : ''), it.asignado && it.asignado !== 'Ambos' ? it.asignado : '', it.tipo === 'pago' ? 'Pago' : it.tipo === 'cita' ? 'Cita' : '', phoneLine(it)].filter(Boolean).join(' · ');
+  const sub = [it.hora, it.kind === 'b' ? '' : (b ? coupleName(b) : ''), it.asignado && it.asignado !== 'Ambos' ? it.asignado : '', TIPO_CORTO[it.tipo] || '', phoneLine(it)].filter(Boolean).join(' · ');
   if (it.kind === 'b') return `<div class="row boda" data-act="openBoda" data-id="${it.bodaId}"><div class="main"><div class="t">${esc(it.titulo)}</div><div class="s">${esc(fmtDate(it.fecha, { weekday: 'long', day: 'numeric', month: 'long' }))}</div></div></div>`;
   return `<div class="row ${it.hecha ? 'done' : ''}" data-act="editTask" data-id="${it.id}">
     <button class="chk ${it.hecha ? 'on' : ''}" data-act="toggleTask" data-id="${it.id}" aria-label="Completar"></button>
@@ -276,7 +276,7 @@ function taskForm(t = {}) {
     <form id="tf"><label class="f"><span>Título</span><input name="titulo" required value="${esc(t.titulo || '')}"></label>
     <div class="two"><label class="f"><span>Fecha</span><input type="date" name="fecha" value="${esc(t.fecha ?? (t.id ? '' : todayISO()))}"></label>
     <label class="f"><span>Hora</span><input type="time" name="hora" value="${esc(t.hora || '')}"></label></div>
-    <div class="two"><label class="f"><span>Tipo</span><select name="tipo">${[['tarea', 'Tarea'], ['cita', 'Cita / reunión'], ['pago', 'Pago / cobro']].map(([v, l]) => `<option value="${v}" ${t.tipo === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <div class="two"><label class="f"><span>Tipo</span><select name="tipo">${TIPO_LIST.map(([v, l]) => `<option value="${v}" ${t.tipo === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
     <label class="f"><span>Asignada a</span><select name="asignado">${['Ambos', ...USERS].map(u => `<option ${((t.asignado || 'Ambos') === u) ? 'selected' : ''}>${u}</option>`).join('')}</select></label></div>
     <label class="f"><span>Boda</span><select name="bodaId"><option value="">— Ninguna —</option>${db.bodas.map(b => `<option value="${b.id}" ${t.bodaId === b.id ? 'selected' : ''}>${esc(coupleName(b))}</option>`).join('')}</select></label>
     <label class="check"><input type="checkbox" name="avisar" ${t.avisar?.length ? 'checked' : ''}> Pedir a ${otro} que también lo añada a su iPhone</label>
@@ -671,7 +671,9 @@ const actions = {
 const fold = s => String(s ?? '').replace(/[áÁ]/g, 'a').replace(/[éÉ]/g, 'e').replace(/[íÍ]/g, 'i').replace(/[óÓ]/g, 'o').replace(/[úÚ]/g, 'u').replace(/[ñÑ]/g, 'n').toLowerCase();
 const MESES_N = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const DIAS_N = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado'];
-const TIPOS = { tarea: 'Tarea', cita: 'Cita / reunión', pago: 'Pago / cobro' };
+const TIPO_LIST = [['tarea', 'Tarea'], ['cita', 'Reunión / cita'], ['llamada', 'Llamada'], ['visita', 'Visita / prueba'], ['pago', 'Pago / cobro']];
+const TIPOS = Object.fromEntries(TIPO_LIST);
+const TIPO_CORTO = { cita: 'Cita', llamada: 'Llamada', visita: 'Visita', pago: 'Pago' };
 function parseQuick(text) {
   let o = ' ' + text.trim() + ' ', f = fold(o), fecha = '', hora = '', m;
   const cut = x => { o = o.slice(0, x.index) + ' ' + o.slice(x.index + x[0].length); f = f.slice(0, x.index) + ' ' + f.slice(x.index + x[0].length); };
@@ -692,9 +694,18 @@ function parseQuick(text) {
   if ((m = f.match(/\bpasado manana\b/))) { fecha = addDays(t, 2); cut(m); }
   else if ((m = f.match(/\bmanana\b/))) { fecha = addDays(t, 1); cut(m); }
   else if ((m = f.match(/\bhoy\b/))) { fecha = t; cut(m); }
-  else if ((m = f.match(/\b(?:el proximo |el |este |proximo )?(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/))) { let diff = (DIAS_N.indexOf(m[1]) - dt(t).getDay() + 7) % 7; if (diff === 0) diff = 7; fecha = addDays(t, diff); cut(m); }
+  else if ((m = f.match(/\b(?:el proximo |el |este |proximo )?(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/))) {
+    const rest = f.slice(m.index + m[0].length), nm = rest.match(new RegExp('^\\s+(\\d{1,2})(?![\\d:.\\/h-])(?:\\s+de\\s+(' + MESES_N.join('|') + '))?'));
+    if (nm && +nm[1] >= 1 && +nm[1] <= 31) {
+      const day = +nm[1]; let r = '';
+      if (nm[2]) r = fill(day, MESES_N.indexOf(nm[2]) + 1, 0);
+      else { const base = dt(t); for (let k = 0; k < 12 && !r; k++) { const cand = mk(day, base.getMonth() + 1 + k > 12 ? base.getMonth() + 1 + k - 12 : base.getMonth() + 1 + k, base.getFullYear() + (base.getMonth() + 1 + k > 12 ? 1 : 0)); if (cand && cand >= t) r = cand; } }
+      if (r) { fecha = r; cut({ index: m.index, 0: f.slice(m.index, m.index + m[0].length + nm[0].length) }); }
+    }
+    if (!fecha) { let diff = (DIAS_N.indexOf(m[1]) - dt(t).getDay() + 7) % 7; if (diff === 0) diff = 7; fecha = addDays(t, diff); cut(m); }
+  }
   else if ((m = f.match(/\b(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?\b/)) && (fecha = fill(+m[1], +m[2], m[3] ? +m[3] : 0))) cut(m);
-  else if ((m = f.match(new RegExp('\\b(?:el )?(\\d{1,2}) de (' + MESES_N.join('|') + ')(?: de (\\d{4}))?\\b'))) && (fecha = fill(+m[1], MESES_N.indexOf(m[2]) + 1, m[3] ? +m[3] : 0))) cut(m);
+  else if ((m = f.match(new RegExp('\\b(?:(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\\s+)?(?:el )?(\\d{1,2}) de (' + MESES_N.join('|') + ')(?: de (\\d{4}))?\\b'))) && (fecha = fill(+m[1], MESES_N.indexOf(m[2]) + 1, m[3] ? +m[3] : 0))) cut(m);
   else if ((m = f.match(/\b(?:dentro de|en) (\d+) (dias?|semanas?|meses?)\b/))) { const n = +m[1]; fecha = /^d/.test(m[2]) ? addDays(t, n) : /^s/.test(m[2]) ? addDays(t, n * 7) : addMonths(t, n); cut(m); }
   else if ((m = f.match(/\bla semana que viene\b/))) { fecha = addDays(t, 7); cut(m); }
   else fecha = '';
@@ -702,24 +713,27 @@ function parseQuick(text) {
     .replace(/^(?:[,.:;\-–\s]|(?:el|la|para|a|de|del|dia|día|que)\s)+/i, '').replace(/(?:[,.:;\-–\s]|\s(?:el|la|para|a|de|del|dia|día|que|en))+$/i, '').trim();
   if (!titulo) return null;
   titulo = titulo.charAt(0).toUpperCase() + titulo.slice(1);
-  const tipo = /\b(pago|pagar|cobro|cobrar|factura|transferencia)\b/.test(fold(titulo)) ? 'pago' : hora ? 'cita' : 'tarea';
+  const ft = fold(titulo);
+  const tipo = /\b(pago|pagar|cobro|cobrar|factura|transferencia)\b/.test(ft) ? 'pago' : /\b(llamar|llamada|telefonear)\b/.test(ft) ? 'llamada' : /\b(visita|visitar|prueba|probar|degustacion)\b/.test(ft) ? 'visita' : (/\b(reunion|cita|quedar|quedada)\b/.test(ft) || hora) ? 'cita' : 'tarea';
   return { titulo, fecha: fecha || t, sinFecha: !fecha, hora, tipo };
 }
-let qPend = null;
+let qPhone = false;
 function quickSheet(p) {
-  qPend = p; const otro = USERS.find(u => u !== currentUser());
-  openSheet(`<h3>Añadir a la agenda</h3>
-    <div class="card"><div class="kv"><span>Qué</span><span>${esc(p.titulo)}</span></div>
-    <div class="kv"><span>Día</span><span>${esc(fmtDate(p.fecha, { weekday: 'long', day: 'numeric', month: 'long' }))}${p.sinFecha ? ' (no indicaste día: hoy)' : ''}</span></div>
-    <div class="kv"><span>Hora</span><span>${p.hora || 'Todo el día'}</span></div><div class="kv"><span>Tipo</span><span>${TIPOS[p.tipo]}</span></div></div>
-    <label class="check"><input type="checkbox" id="qa-avisar"> Pedir a ${otro} que también lo añada a su iPhone</label>
-    <div class="btns"><button class="btn" data-act="qaSave">Guardar</button><button class="btn ghost" data-act="qaSavePhone">Guardar y añadir a mi iPhone</button><button class="btn ghost" data-act="qaEdit">Editar</button><button class="btn ghost" data-act="closeSheet">Cancelar</button></div>`);
-}
-function qaCommit() {
-  const p = qPend; if (!p) return null;
-  const avisar = $('#qa-avisar')?.checked ? USERS.filter(u => u !== currentUser()) : [];
-  const rec = { id: uid(), hecha: false, titulo: p.titulo, fecha: p.fecha, hora: p.hora, tipo: p.tipo, asignado: 'Ambos', bodaId: '', notas: '', avisar, iphone: {} };
-  db.tareas.push(rec); log('Creó la tarea «' + rec.titulo + '»'); save(); closeSheet(); qPend = null; refresh(); return rec;
+  const otro = USERS.find(u => u !== currentUser());
+  const s = openSheet(`<h3>Añadir a la agenda</h3><form id="qf">
+    <label class="f"><span>Qué</span><input name="titulo" required value="${esc(p.titulo)}"></label>
+    <div class="two"><label class="f"><span>Día</span><input type="date" name="fecha" required value="${esc(p.fecha)}"></label>
+    <label class="f"><span>Hora</span><input type="time" name="hora" value="${esc(p.hora)}"></label></div>
+    <p class="hint" style="margin-top:-4px">${p.sinFecha ? 'No indicaste día: he puesto hoy. ' : ''}Sin hora, será de todo el día. Toca cualquier campo para cambiarlo.</p>
+    <label class="f"><span>Tipo</span><select name="tipo">${TIPO_LIST.map(([v, l]) => `<option value="${v}" ${p.tipo === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    <label class="check"><input type="checkbox" name="avisar"> Pedir a ${otro} que también lo añada a su iPhone</label>
+    <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="qaSavePhone">Guardar y añadir a mi iPhone</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
+  $('#qf', s).addEventListener('submit', e => {
+    e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
+    const rec = { id: uid(), hecha: false, titulo: f.titulo.trim(), fecha: f.fecha, hora: f.hora, tipo: f.tipo, asignado: 'Ambos', bodaId: '', notas: '', avisar: f.avisar ? USERS.filter(u => u !== currentUser()) : [], iphone: {} };
+    db.tareas.push(rec); log('Creó la tarea «' + rec.titulo + '»'); save(); closeSheet(); refresh();
+    if (qPhone) { qPhone = false; addToPhone([rec]); }
+  });
 }
 document.addEventListener('submit', e => {
   if (e.target.id !== 'qa') return; e.preventDefault();
@@ -882,9 +896,7 @@ function catSheet() {
 Object.assign(actions, {
   phoneTask: () => { phoneAfter = true; $('#tf').requestSubmit(); },
   phoneAllPending: () => addToPhone(pendingPhone()),
-  qaSave: () => { qaCommit(); },
-  qaSavePhone: () => { const r = qaCommit(); if (r) addToPhone([r]); },
-  qaEdit: () => { const p = qPend; closeSheet(); taskForm({ titulo: p.titulo, fecha: p.fecha, hora: p.hora, tipo: p.tipo }); },
+  qaSavePhone: () => { qPhone = true; $('#qf').requestSubmit(); },
   openProv: id => { location.hash = '#proveedor/' + id; }, newProv: () => provForm(), editProv: id => provForm(provById(id)),
   delProv: id => { const p = provById(id); if (!confirm('¿Eliminar este proveedor con todas sus tarifas?')) return; log('Eliminó el proveedor «' + p.nombre + '»'); db.proveedores = db.proveedores.filter(x => x.id !== id); db.tarifas = db.tarifas.filter(t => t.provId !== id); save(); location.hash = '#proveedores'; },
   newTarifa: id => tarifaForm(id), editTarifa: id => { const t = db.tarifas.find(x => x.id === id); tarifaForm(t.provId, t); },
