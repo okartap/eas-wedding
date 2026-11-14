@@ -695,7 +695,7 @@ function parseQuick(text) {
   else if ((m = f.match(/\bmanana\b/))) { fecha = addDays(t, 1); cut(m); }
   else if ((m = f.match(/\bhoy\b/))) { fecha = t; cut(m); }
   else if ((m = f.match(/\b(?:el proximo |el |este |proximo )?(lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/))) {
-    const rest = f.slice(m.index + m[0].length), nm = rest.match(new RegExp('^\\s+(\\d{1,2})(?![\\d:.\\/h-])(?:\\s+de\\s+(' + MESES_N.join('|') + '))?'));
+    const rest = f.slice(m.index + m[0].length), nm = rest.match(new RegExp('^\\s+(\\d{1,2})(?!\\d)(?![:.\\/]\\d)(?!\\s?h\\b)(?!-)(?:\\s+de\\s+(' + MESES_N.join('|') + '))?'));
     if (nm && +nm[1] >= 1 && +nm[1] <= 31) {
       const day = +nm[1]; let r = '';
       if (nm[2]) r = fill(day, MESES_N.indexOf(nm[2]) + 1, 0);
