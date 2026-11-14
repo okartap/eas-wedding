@@ -216,6 +216,7 @@ function viewInicio(v) {
     <div class="center"><img class="logo" src="${LOGO}" alt="Ea’s Wedding" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{textContent:'Ea’s Wedding'}))"></div>
     <p class="sub">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
     <p class="hint" style="margin:0 0 12px">Sesión de <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''} · <span data-act="logout" style="text-decoration:underline;cursor:pointer">Cerrar sesión</span></p>
+    <div class="center" style="margin:-2px 0 12px"><button class="btn ghost sm" data-act="toggleTheme">${document.documentElement.dataset.theme === 'dark' ? '☀ Modo claro' : '☾ Modo oscuro'}</button></div>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}
     ${diarioGeneralHTML().replace('margin:0 0 18px','margin:4px 0 10px')}
@@ -683,6 +684,13 @@ const actions = {
   newTask: () => taskForm(agendaMode === 'mes' ? { fecha: selDay } : {}), newTaskBoda: id => taskForm({ bodaId: id }),
   editTask: id => taskForm(db.tareas.find(t => t.id === id)),
   toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); if (t.hecha) diarioForm({}, { task: t }); },
+  toggleTheme: () => {
+    const dark = document.documentElement.dataset.theme !== 'dark';
+    if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem('eas.theme', dark ? 'dark' : 'light'); } catch (e) { }
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#1D1914' : '#FBF6F0';
+    refresh();
+  },
   delTask: id => { const t = db.tareas.find(x => x.id === id); if (!confirm('¿Eliminar «' + (t?.titulo || 'esta tarea') + '»?')) return; log('Eliminó la tarea «' + t?.titulo + '»'); db.tareas = db.tareas.filter(t => t.id !== id); save(); closeSheet(); refresh(); },
   newDiario: id => diarioForm({}, { bodaId: id || '' }), editDiario: id => diarioForm(db.diario.find(e => e.id === id), {}),
   delDiario: id => { if (!confirm('¿Borrar esta nota del diario?')) return; db.diario = db.diario.filter(e => e.id !== id); log('Borró una nota del diario'); save(); closeSheet(); refresh(); },
