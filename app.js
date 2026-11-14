@@ -116,7 +116,7 @@ function localSave() { try { localStorage.setItem(KEY, JSON.stringify(db)); } ca
 function save() { localSave(); Sync.push(); }
 load();
 db.historial ||= [];
-function currentUser() { return Sync.user || localStorage.getItem('eas.user') || 'Andrea'; }
+function currentUser() { const u = localStorage.getItem('eas.user'); return USERS.includes(u) ? u : 'Andrea'; }
 function log(texto) { db.historial.push({ id: uid(), fecha: new Date().toISOString(), usuario: currentUser(), texto }); if (db.historial.length > 400) db.historial = db.historial.slice(-300); }
 
 /* ---------- UI helpers ---------- */
@@ -210,7 +210,7 @@ function viewInicio(v) {
   v.innerHTML = `
     <div class="center"><img class="logo" src="${LOGO}" alt="Ea’s Wedding" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{textContent:'Ea’s Wedding'}))"></div>
     <p class="sub">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
-    ${Sync.user ? '' : `<div class="seg" style="margin-bottom:10px">${USERS.map(u => `<button class="${currentUser() === u ? 'on' : ''}" data-act="setUser" data-id="${u}">${u}</button>`).join('')}</div>`}
+    <div class="seg" style="margin-bottom:10px">${USERS.map(u => `<button class="${currentUser() === u ? 'on' : ''}" data-act="setUser" data-id="${u}">${u}</button>`).join('')}</div>
     <p class="hint" style="margin-top:0">Usuario actual: <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''}</p>
     ${notasHTML().replace('margin-top:26px','margin-top:4px;margin-bottom:18px')}
     <div class="seg"><button class="${agendaMode === 'lista' ? 'on' : ''}" data-act="agendaMode" data-id="lista">Lista</button><button class="${agendaMode === 'mes' ? 'on' : ''}" data-act="agendaMode" data-id="mes">Mes</button></div>
@@ -557,7 +557,7 @@ function viewAjustes(v) {
     <h2>Mi firma</h2>
     <div class="sigprev" id="sigprev">${p.firma ? `<img src="${p.firma.data}" alt="Firma">` : '<span class="muted">Sin firma guardada</span>'}</div>
     <div class="btns"><button class="btn sm" data-act="drawSig">Dibujar firma</button><label class="btn ghost sm" style="cursor:pointer">Subir imagen<input type="file" accept="image/*" id="sigf" hidden></label>${p.firma ? '<button class="btn danger sm" data-act="delSig">Quitar</button>' : ''}</div>
-    <h2>Sincronización</h2><p class="hint">${Sync.enabled ? (Sync.user ? `Sesión iniciada como <b>${esc(Sync.user)}</b> · ${esc(Sync.status || '')}` : 'Sin sesión') : 'Aún no está configurada: los datos solo están en este dispositivo.'}</p>
+    <h2>Sincronización</h2><p class="hint">${Sync.enabled ? (Sync.user ? `Sesión iniciada · ${esc(Sync.status || '')}` : 'Sin sesión') : 'Aún no está configurada: los datos solo están en este dispositivo.'}</p>
     ${Sync.user ? '<div class="btns" style="margin-top:0"><button class="btn ghost sm" data-act="logout">Cerrar sesión</button></div>' : ''}
     <h2>Historial de cambios</h2>
     ${db.historial.length ? [...db.historial].reverse().slice(0, 40).map(h => `<div class="hist"><b>${esc(h.usuario)}</b> · ${esc(h.texto)}<span>${esc(new Date(h.fecha).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></div>`).join('') : '<p class="hint">Aún no hay cambios registrados.</p>'}
