@@ -25,7 +25,7 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
 - **Añadido rápido**: escribir en la barra una frase natural y pulsar Añadir. Ejemplos: «viernes 17:00 reunión con Laura», «lunes 16 llamar a la florista», «mañana a las 5 de la tarde prueba de menú».
 - Se abre una pantalla de confirmación con **qué, día, hora y tipo** (Tarea, Reunión/cita, Llamada, Visita/prueba, Pago/cobro). Todo se puede cambiar tocando el campo.
 - Sin hora, la cita es de todo el día.
-- Los pendientes se agrupan por **días desplegables**: «Atrasadas» y «Hoy» salen abiertos; el resto, cerrados. Se toca el día para abrirlo.
+- Los pendientes se agrupan por **días desplegables** y al abrir la app salen **todos cerrados** («Atrasadas», «Hoy», los días siguientes…). Se toca el día para abrirlo; mientras la app sigue abierta, recuerda los que has abierto.
 - Vistas **Lista** y **Mes**. Las bodas aparecen marcadas en el calendario. En la vista Mes, al cambiar de mes la lista de debajo pasa a ser de ese mes (día 1, o el de hoy en el mes actual); se toca cualquier día para ver sus citas.
 - Marcar el círculo completa la tarea. «Mostrar completadas» las recupera.
 
