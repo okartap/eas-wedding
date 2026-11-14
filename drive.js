@@ -31,20 +31,23 @@ const Drive = {
       document.head.appendChild(s);
     });
   },
-  async auth() {
-    if (this.token && Date.now() < this.exp) return this.token;
-    await this.loadGIS();
+  valid() { return !!this.token && Date.now() < this.exp; },
+  // Debe llamarse directamente desde un toque del usuario (iOS bloquea la ventana si no).
+  auth() {
+    if (this.valid()) return Promise.resolve(this.token);
+    if (!window.google?.accounts?.oauth2) return this.loadGIS().then(() => { throw new Error('Google se estaba cargando: vuelve a pulsar «Conectar con Google»'); });
     return new Promise((ok, ko) => {
       const c = google.accounts.oauth2.initTokenClient({
         client_id: window.GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
-        callback: r => { if (r.error) return ko(new Error(r.error === 'access_denied' ? 'Acceso a Drive cancelado' : r.error)); this.token = r.access_token; this.exp = Date.now() + (r.expires_in - 60) * 1000; ok(this.token); },
-        error_callback: e => ko(new Error(e?.type === 'popup_closed' ? 'Ventana de Google cerrada' : 'No se pudo abrir el acceso de Google'))
+        callback: r => { if (r.error) return ko(new Error(r.error === 'access_denied' ? 'Acceso a Drive cancelado' : r.error)); this.token = r.access_token; this.exp = Date.now() + (r.expires_in - 60) * 1000; localStorage.setItem('eas.drive', '1'); ok(this.token); },
+        error_callback: e => ko(new Error(e?.type === 'popup_closed' ? 'Ventana de Google cerrada' : e?.type === 'popup_failed_to_open' ? 'El navegador bloqueó la ventana de Google' : 'No se pudo abrir el acceso de Google'))
       });
-      c.requestAccessToken({ prompt: this.token === null && !localStorage.getItem('eas.drive') ? 'consent' : '' });
+      c.requestAccessToken({ prompt: localStorage.getItem('eas.drive') ? '' : 'consent' });
     });
   },
   async api(url, opt = {}) {
-    const t = await this.auth();
+    if (!this.valid()) throw new Error('Hay que conectar con Google primero');
+    const t = this.token;
     const r = await fetch(url, { ...opt, headers: { ...(opt.headers || {}), Authorization: 'Bearer ' + t } });
     if (r.status === 401) { this.token = null; throw new Error('La sesión de Google caducó: inténtalo de nuevo'); }
     if (!r.ok) throw new Error('Drive respondió con error ' + r.status);

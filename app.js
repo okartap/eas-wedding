@@ -949,14 +949,19 @@ function tarifaForm(provId, t = {}) {
         Después, en la ficha, el enlace aparece como botón para abrir el documento cuando lo necesites.
       </div></details>
     <div class="center"><div id="afile" class="hint">${archivo ? 'Archivo: ' + esc(archivo.nombre) : 'Sin archivo'}</div>
-    <div class="btns" style="margin-top:0"><label class="btn sm" style="cursor:pointer">Subir dosier a Drive<input type="file" id="dfi" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.heic" hidden></label><label class="btn ghost sm" style="cursor:pointer">Adjuntar aquí (máx. 500 KB)<input type="file" id="afi" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hidden></label><button class="btn danger sm" type="button" id="arm" style="display:${archivo ? 'inline-flex' : 'none'}">Quitar archivo</button></div></div>
+    <div class="btns" style="margin-top:0"><button class="btn sm" type="button" id="dconn" style="display:${Drive.valid() ? 'none' : 'inline-flex'}">Conectar con Google</button><label class="btn sm" id="dlab" style="cursor:pointer;display:${Drive.valid() ? 'inline-flex' : 'none'}">Subir dosier a Drive<input type="file" id="dfi" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx,.heic" hidden></label><label class="btn ghost sm" style="cursor:pointer">Adjuntar aquí (máx. 500 KB)<input type="file" id="afi" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hidden></label><button class="btn danger sm" type="button" id="arm" style="display:${archivo ? 'inline-flex' : 'none'}">Quitar archivo</button></div></div>
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
+  Drive.loadGIS().catch(() => { });
+  $('#dconn', s).onclick = () => {
+    Drive.auth().then(() => { $('#dconn', s).style.display = 'none'; $('#dlab', s).style.display = 'inline-flex'; $('#afile', s).textContent = 'Conectado con Google: ya puedes subir el dosier'; })
+      .catch(x => { $('#afile', s).textContent = x.message; toast(x.message); });
+  };
   $('#dfi', s).onchange = async e => {
     const f = e.target.files[0]; if (!f) return; e.target.value = '';
     if (!navigator.onLine) return toast('Sin conexión: súbelo cuando tengas internet');
     const st = $('#afile', s); st.textContent = 'Subiendo «' + f.name + '» a Drive…';
     try { const r = await Drive.upload(f); $('input[name=enlace]', s).value = r.webViewLink; driveId = r.id; st.textContent = 'Subido a Drive: ' + f.name + ' (el enlace ya está puesto; pulsa Guardar)'; toast('Subido a Drive'); }
-    catch (x) { st.textContent = 'No se pudo subir: ' + x.message; toast('No se pudo subir a Drive'); }
+    catch (x) { st.textContent = 'No se pudo subir: ' + x.message; toast('No se pudo subir a Drive'); if (!Drive.valid()) { $('#dconn', s).style.display = 'inline-flex'; $('#dlab', s).style.display = 'none'; } }
   };
   $('#afi', s).onchange = e => {
     const f = e.target.files[0]; if (!f) return;
