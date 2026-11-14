@@ -575,12 +575,15 @@ function viewAjustes(v) {
     ${Sync.user ? '<div class="btns" style="margin-top:0"><button class="btn ghost sm" data-act="logout">Cerrar sesión</button></div>' : ''}
     <h2>Historial de cambios</h2>
     ${db.historial.length ? [...db.historial].reverse().slice(0, 40).map(h => `<div class="hist"><b>${esc(h.usuario)}</b> · ${esc(h.texto)}<span>${esc(new Date(h.fecha).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></div>`).join('') : '<p class="hint">Aún no hay cambios registrados.</p>'}
+    <h2>Aviso en el iPhone</h2><p class="hint">Cómo se envía una cita al Calendario de este móvil.</p>
+    <label class="f"><select id="pmethod"><option value="calendar" ${phoneMethod() === 'calendar' ? 'selected' : ''}>Abrir directamente en Calendario</option><option value="share" ${phoneMethod() === 'share' ? 'selected' : ''}>Compartir como archivo</option></select></label>
     <h2>Datos de ejemplo</h2><p class="hint">Crea una boda de prueba con su calendario para ver cómo funciona. Se elimina desde su ficha con «Eliminar».</p>
     <div class="btns" style="margin-top:0"><button class="btn ghost sm" data-act="demoBoda">Crear boda de ejemplo</button></div>
     <h2>Copia de seguridad</h2><p class="hint">Los datos se guardan en este dispositivo. Descarga una copia de vez en cuando.<br>Espacio usado: <b>${Math.min(100, Math.round(JSON.stringify(db).length / 50000))} %</b>${JSON.stringify(db).length > 4000000 ? ' · casi lleno: usa enlaces de Drive en vez de archivos' : ''}</p>
     <div class="btns"><button class="btn ghost sm" data-act="exportDb">Exportar copia</button><label class="btn ghost sm" style="cursor:pointer">Importar copia<input type="file" accept="application/json,.json" id="impf" hidden></label></div>
     <h2>Instalar en el iPhone</h2><p class="hint">Abre la app en Safari → botón Compartir → “Añadir a pantalla de inicio”.</p>`;
   $$('[data-p]', v).forEach(el => el.addEventListener('input', () => { db.profile[el.dataset.p] = el.value; save(); }));
+  $('#pmethod', v).onchange = e => localStorage.setItem('eas.phoneMethod', e.target.value);
   $('#sigf', v).onchange = e => { const f = e.target.files[0]; if (f) imageToSig(f); };
   $('#impf', v).onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const d = JSON.parse(t); if (!d.bodas || !d.plantillas) throw 0; db = Object.assign(defaults(), d); save(); toast('Copia importada'); refresh(); } catch (x) { toast('Archivo no válido'); } }); };
 }
@@ -774,11 +777,19 @@ function icsFor(items) {
   L.push('END:VCALENDAR');
   return L.map(icsFold).join('\r\n') + '\r\n';
 }
+const phoneMethod = () => localStorage.getItem('eas.phoneMethod') || 'calendar';
+const b64url = str => { const bytes = new TextEncoder().encode(str); let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b)); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
 async function addToPhone(items) {
   items = items.filter(t => t && t.fecha);
   if (!items.length) return toast('Pon primero una fecha');
   const ics = icsFor(items), name = 'ea-wedding.ics';
   const mark = () => { const u = currentUser(); items.forEach(t => { t.iphone = Object.assign({}, t.iphone, { [u]: true }); }); log('Añadió al iPhone: ' + (items.length === 1 ? '«' + items[0].titulo + '»' : items.length + ' citas')); save(); refresh(); };
+  if (phoneMethod() === 'calendar' && navigator.serviceWorker?.controller) {
+    const url = new URL('cal.ics', location.href); url.search = '?d=' + b64url(ics);
+    mark();
+    const a = document.createElement('a'); a.href = url.href; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 1500);
+    return;
+  }
   try {
     const file = new File([ics], name, { type: 'text/calendar' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Ea’s Wedding' }); mark(); return; }
