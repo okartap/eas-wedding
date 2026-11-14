@@ -189,6 +189,7 @@ function dayLabel(d) {
   if (d === t) return 'Hoy'; if (d === addDays(t, 1)) return 'Mañana';
   return fmtDate(d, { weekday: 'long', day: 'numeric', month: 'long' });
 }
+let dayOpen = {}; // días desplegados (por defecto: Atrasadas y Hoy)
 function viewInicio(v) {
   const t = todayISO();
   let body = '';
@@ -198,11 +199,15 @@ function viewInicio(v) {
     const up = items.filter(i => (i.kind === 'b' ? i.fecha >= t : !i.hecha && i.fecha && i.fecha >= t));
     const nodate = items.filter(i => i.kind === 't' && !i.hecha && !i.fecha);
     const done = items.filter(i => i.kind === 't' && i.hecha);
-    if (late.length) body += `<div class="group late">Atrasadas</div>` + late.map(rowHTML).join('');
+    const grp = (key, label, list, cls = '') => {
+      const open = key in dayOpen ? dayOpen[key] : (key === 'late' || key === t);
+      return `<details class="dgroup" ${open ? 'open' : ''} ontoggle="dayOpen['${key}']=this.open"><summary class="group ${cls}">${esc(label)} · ${list.length}</summary>${list.map(rowHTML).join('')}</details>`;
+    };
+    if (late.length) body += grp('late', 'Atrasadas', late, 'late');
     const byDay = {}; up.forEach(i => (byDay[i.fecha] ||= []).push(i));
-    Object.keys(byDay).sort().forEach(d => body += `<div class="group">${esc(dayLabel(d))}</div>` + byDay[d].map(rowHTML).join(''));
-    if (nodate.length) body += `<div class="group">Sin fecha</div>` + nodate.map(rowHTML).join('');
-    if (showDone && done.length) body += `<div class="group">Completadas</div>` + done.map(rowHTML).join('');
+    Object.keys(byDay).sort().forEach(d => body += grp(d, dayLabel(d), byDay[d]));
+    if (nodate.length) body += grp('nodate', 'Sin fecha', nodate);
+    if (showDone && done.length) body += grp('done', 'Completadas', done);
     if (!body) body = `<div class="empty">No hay nada pendiente.<br>Pulsa + para añadir una tarea o cita.</div>`;
     body += `<div class="btns"><button class="btn ghost sm" data-act="toggleDone">${showDone ? 'Ocultar' : 'Mostrar'} completadas</button></div>`;
   } else body = calendarHTML();
