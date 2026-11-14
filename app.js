@@ -275,7 +275,6 @@ function notaForm(n) {
 }
 
 /* ---------- Diario (notas de lo hecho, visto o decidido) ---------- */
-const DIARIO_TIPOS = ['cita', 'llamada', 'visita']; // al completar estos tipos se pregunta qué se ha hecho o decidido
 let diarioOpen = false;
 const diarioDe = bodaId => db.diario.filter(e => (e.bodaId || '') === (bodaId || '')).sort((x, y) => y.fecha.localeCompare(x.fecha) || (y.ts || '').localeCompare(x.ts || ''));
 function diarioRow(e) {
@@ -384,7 +383,7 @@ function crearHitos(b) {
   (SERVICIOS[b.servicio] || SERVICIOS[SERV_DEF]).hitos.forEach(([w, titulo]) => {
     let f = typeof w === 'number' ? addMonths(b.fecha, w) : addDays(b.fecha, parseInt(w.slice(1), 10));
     if (f < t) f = t;
-    const tipo = /^Reuni/i.test(titulo) ? 'cita' : /visit|prueba|revisi[óo]n del espacio/i.test(titulo) ? 'visita' : 'tarea'; // reuniones y visitas piden nota al completarse
+    const tipo = /^Reuni/i.test(titulo) ? 'cita' : /visit|prueba|revisi[óo]n del espacio/i.test(titulo) ? 'visita' : 'tarea'; 
     db.tareas.push({ id: uid(), titulo, fecha: f, hora: '', tipo, asignado: 'Ambos', bodaId: b.id, hecha: false, notas: '' });
   });
 }
@@ -677,7 +676,7 @@ const actions = {
   calPrev: () => { calMonth = addMonths(calMonth + '-01', -1).slice(0, 7); refresh(); }, calNext: () => { calMonth = addMonths(calMonth + '-01', 1).slice(0, 7); refresh(); },
   newTask: () => taskForm(agendaMode === 'mes' ? { fecha: selDay } : {}), newTaskBoda: id => taskForm({ bodaId: id }),
   editTask: id => taskForm(db.tareas.find(t => t.id === id)),
-  toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); if (t.hecha && DIARIO_TIPOS.includes(t.tipo)) diarioForm({}, { task: t }); },
+  toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); if (t.hecha) diarioForm({}, { task: t }); },
   delTask: id => { const t = db.tareas.find(x => x.id === id); log('Eliminó la tarea «' + t?.titulo + '»'); db.tareas = db.tareas.filter(t => t.id !== id); save(); closeSheet(); refresh(); },
   newDiario: id => diarioForm({}, { bodaId: id || '' }), editDiario: id => diarioForm(db.diario.find(e => e.id === id), {}),
   delDiario: id => { if (!confirm('¿Borrar esta nota del diario?')) return; db.diario = db.diario.filter(e => e.id !== id); log('Borró una nota del diario'); save(); closeSheet(); refresh(); },
