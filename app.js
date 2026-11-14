@@ -214,7 +214,7 @@ function viewInicio(v) {
   } else body = calendarHTML();
 
   v.innerHTML = `
-    <div class="hdr"><img class="hlogo" src="icons/logo-hdr.png" alt=""><div class="htx"><div class="hn">Ea’s Wedding</div><div class="hd">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</div></div><span></span></div><div class="hsp"></div>
+    <div class="hdr"><img class="hlogo" src="icons/logo-hdr.png" alt=""><div class="htx"><div class="hn">Ea’s Wedding</div><div class="hl"></div><div class="hd">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</div></div></div><div class="hsp"></div>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}
     <div class="seg"><button class="${agendaMode === 'lista' ? 'on' : ''}" data-act="agendaMode" data-id="lista">Lista</button><button class="${agendaMode === 'mes' ? 'on' : ''}" data-act="agendaMode" data-id="mes">Mes</button></div>

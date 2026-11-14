@@ -23,7 +23,7 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
 
 ## 3. Agenda (pantalla de Inicio)
 
-- **Cabecera fija**: arriba de Inicio queda siempre a la vista el logo a la izquierda y, centrados, «Ea’s Wedding» y la fecha de hoy. El sol/luna y el punto verde siguen en las esquinas.
+- **Cabecera fija**: arriba de Inicio queda siempre a la vista, con el logo grande y muy suave de fondo, «Ea’s Wedding» en cursiva y la fecha de hoy debajo, todo centrado. Funciona igual en modo claro y oscuro. El sol/luna y el punto verde siguen en las esquinas.
 - **Añadido rápido**: escribir en la barra una frase natural y pulsar Añadir. Ejemplos: «viernes 17:00 reunión con Laura», «lunes 16 llamar a la florista», «mañana a las 5 de la tarde prueba de menú».
 - Se abre una pantalla de confirmación con **qué, día, hora y tipo** (Tarea, Reunión/cita, Llamada, Visita/prueba, Pago/cobro). Todo se puede cambiar tocando el campo.
 - Sin hora, la cita es de todo el día.
