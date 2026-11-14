@@ -998,8 +998,11 @@ Object.assign(actions, {
     const t = db.tarifas.find(x => x.id === id); if (!t) return;
     const did = t.driveId || ((t.enlace || '').match(/\/d\/([\w-]{10,})/) || [])[1]; if (!did) return;
     if (!navigator.onLine) return toast('Sin conexión: no se puede abrir ahora');
-    toast('Abriendo dosier…'); Net.set(true);
+    if (!Drive.valid() && !window.google?.accounts?.oauth2) return toast('Google se está cargando: vuelve a tocar en un segundo');
+    Net.set(true);
     try {
+      if (!Drive.valid()) { toast('Conectando con Google…'); await Drive.auth(); }
+      toast('Abriendo dosier…');
       const r = await Drive.api('https://www.googleapis.com/drive/v3/files/' + did + '?alt=media');
       const blob = await r.blob(), url = URL.createObjectURL(blob), tipo = blob.type || '';
       if (!/pdf|image/.test(tipo)) { downloadBlob(blob, t.concepto || 'dosier'); return toast('Este tipo de archivo se descarga para abrirlo'); }
@@ -1026,6 +1029,7 @@ Object.assign(actions, {
 route();
 Sync.init();
 Net.init();
+Drive.loadGIS().then(() => Drive.silent()).catch(() => { });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
 
 // Al volver a la app desde otra (p. ej. Calendario) iOS puede soltar la imagen del logo: se vuelve a cargar.

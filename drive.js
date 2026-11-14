@@ -31,6 +31,14 @@ const Drive = {
       document.head.appendChild(s);
     });
   },
+  // Reconexión silenciosa al abrir la app (si Google lo permite sin ventana; si no, se ignora)
+  silent() {
+    if (!localStorage.getItem('eas.drive') || this.valid() || !navigator.onLine) return;
+    try {
+      google.accounts.oauth2.initTokenClient({ client_id: window.GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', prompt: 'none',
+        callback: r => { if (!r.error) { this.token = r.access_token; this.exp = Date.now() + (r.expires_in - 60) * 1000; } }, error_callback: () => { } }).requestAccessToken({ prompt: 'none' });
+    } catch (e) { }
+  },
   valid() { return !!this.token && Date.now() < this.exp; },
   // Debe llamarse directamente desde un toque del usuario (iOS bloquea la ventana si no).
   auth() {
