@@ -70,6 +70,7 @@ const Sync = (() => {
       auth.signInWithEmailAndPassword(f.get('e').trim(), f.get('p')).catch(() => { document.getElementById('lerr').textContent = 'Correo o contraseña incorrectos'; });
     };
   }
+  S.signOut = () => { try { return auth && auth.signOut(); } catch (e) { } };
   S.init = () => {
     if (!S.enabled) return;
     try {
@@ -78,8 +79,8 @@ const Sync = (() => {
     } catch (e) { console.warn(e); S.enabled = false; return; }
     auth.onAuthStateChanged(u => {
       const l = document.getElementById('login'); if (l) l.remove();
-      if (u) { S.user = (cfg.users || {})[(u.email || '').toLowerCase()] || u.email; S.status = 'conectando…'; listen(); }
-      else { S.user = null; stop(); loginScreen(); }
+      if (u) { S.user = (cfg.users || {})[(u.email || '').toLowerCase()] || u.email; S.status = 'conectando…'; listen(); if (window.Lock) Lock.init(); }
+      else { S.user = null; stop(); const k = document.getElementById('lock'); if (k) k.remove(); loginScreen(); }
       refresh();
     });
   };

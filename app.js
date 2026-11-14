@@ -215,8 +215,7 @@ function viewInicio(v) {
   v.innerHTML = `
     <div class="center"><img class="logo" src="${LOGO}" alt="Ea’s Wedding" onerror="this.replaceWith(Object.assign(document.createElement('h1'),{textContent:'Ea’s Wedding'}))"></div>
     <p class="sub">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
-    <div class="seg" style="margin-bottom:10px">${USERS.map(u => `<button class="${currentUser() === u ? 'on' : ''}" data-act="setUser" data-id="${u}">${u}</button>`).join('')}</div>
-    <p class="hint" style="margin-top:0">Usuario actual: <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''}</p>
+    <p class="hint" style="margin:0 0 12px">Sesión de <b>${esc(currentUser())}</b>${Sync.status ? ' · ' + esc(Sync.status) : ''} · <span data-act="logout" style="text-decoration:underline;cursor:pointer">Cerrar sesión</span></p>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}
     ${diarioGeneralHTML().replace('margin:0 0 18px','margin:4px 0 10px')}
@@ -631,6 +630,7 @@ function viewAjustes(v) {
     ${db.historial.length ? [...db.historial].reverse().slice(0, 40).map(h => `<div class="hist"><b>${esc(h.usuario)}</b> · ${esc(h.texto)}<span>${esc(new Date(h.fecha).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></div>`).join('') : '<p class="hint">Aún no hay cambios registrados.</p>'}
     <h2>Aviso en el iPhone</h2><p class="hint">Cómo se envía una cita al Calendario de este móvil.</p>
     <label class="f"><select id="pmethod"><option value="calendar" ${phoneMethod() === 'calendar' ? 'selected' : ''}>Abrir directamente en Calendario</option><option value="share" ${phoneMethod() === 'share' ? 'selected' : ''}>Compartir como archivo</option></select></label>
+    ${typeof Lock !== 'undefined' ? Lock.settingsHTML() : ''}
     <h2>Datos de ejemplo</h2><p class="hint">Crea una boda de prueba con su calendario para ver cómo funciona. Se elimina desde su ficha con «Eliminar».</p>
     <div class="btns" style="margin-top:0"><button class="btn ghost sm" data-act="demoBoda">Crear boda de ejemplo</button></div>
     <h2>Copia de seguridad</h2><p class="hint">Los datos se guardan en este dispositivo. Descarga una copia de vez en cuando.<br>Espacio usado: <b>${Math.min(100, Math.round(JSON.stringify(db).length / 50000))} %</b>${JSON.stringify(db).length > 4000000 ? ' · casi lleno: usa enlaces de Drive en vez de archivos' : ''}</p>
