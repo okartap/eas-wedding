@@ -89,6 +89,19 @@ const HITOS = [
   ['d0', 'Coordinación del día de la boda'], ['d+7', 'Cierre: cobro final y feedback']
 ];
 
+/* ---------- Servicios de Ea’s Wedding ---------- */
+const HITOS_DIAB = [
+  [-1, 'Reunión de inicio y revisión de lo organizado por los novios'], ['d-28', 'Recopilar los contactos de todos los proveedores'],
+  ['d-21', 'Crear el timing del evento'], ['d-14', 'Enviar el timing a proveedores y confirmar horarios'],
+  ['d-7', 'Reunión final con la pareja'], ['d-1', 'Revisión del espacio'], ['d0', 'Coordinación del día de la boda'], ['d+7', 'Cierre: cobro final y feedback']
+];
+const SERV_DEF = 'Organización Integral';
+const SERVICIOS = {
+  'Organización Integral': { hitos: HITOS, items: ['Planificación, diseño y organización desde cero.', 'Estudio personalizado según gustos y estilo de los novios.', 'Búsqueda y selección de proveedores de confianza.', 'Control de presupuesto realista.', 'Creación del timing del evento.', 'Gestión de pagos con los proveedores.', 'Elaboración de planificación cronológica completa.', 'Coordinación total del día B.'] },
+  'Coordinación del Día B': { hitos: HITOS_DIAB, items: ['Servicio iniciado un mes antes de la boda.', 'Revisión de todo lo ya organizado por los novios.', 'Recopilación de contactos de todos los proveedores.', 'Creación del timing del evento.', 'Coordinación completa del día B.'] }
+};
+const servicioTexto = n => { const sv = SERVICIOS[n] || SERVICIOS[SERV_DEF]; return `Servicio de ${n}, que incluye:\n` + sv.items.map(i => '- ' + i).join('\n'); };
+
 /* ---------- Datos ---------- */
 function defaults() {
   return { v: 1, profile: { marca: 'Ea’s Wedding' }, bodas: [], tareas: [], contratos: [], notas: [], historial: [],
@@ -281,7 +294,7 @@ function viewBodas(v) {
       const ts = db.tareas.filter(t => t.bodaId === b.id), d = ts.filter(t => t.hecha).length;
       return `<div class="card link" data-act="openBoda" data-id="${b.id}"><div class="name">${esc(coupleName(b))}</div>
       <div class="countdown">${esc(b.fecha ? fmtDate(b.fecha) : 'Fecha por definir')}${b.lugar ? ' · ' + esc(b.lugar) : ''}</div>
-      <div class="center" style="margin-top:8px"><span class="tag">${esc(b.estado || 'Consulta')}</span></div>
+      <div class="center" style="margin-top:8px"><span class="tag dark">${esc(b.servicio || SERV_DEF)}</span> <span class="tag">${esc(b.estado || 'Consulta')}</span></div>
       ${ts.length ? `<div class="progress"><i style="width:${Math.round(d / ts.length * 100)}%"></i></div>` : ''}</div>`;
     }).join('') : `<div class="empty">Todavía no hay bodas.<br>Pulsa + para crear la primera.</div>`}
     <button class="fab" data-act="newBoda" aria-label="Nueva boda">+</button>`;
@@ -292,9 +305,10 @@ function bodaForm(b = {}) {
     <form id="bf"><div class="two">${f('n1', 'Nombre 1', 'required')}${f('dni1', 'DNI 1')}</div><div class="two">${f('n2', 'Nombre 2')}${f('dni2', 'DNI 2')}</div>
     <div class="two">${f('email', 'Email', 'type="email"')}${f('tel', 'Teléfono', 'type="tel"')}</div>${f('dir', 'Dirección de los clientes')}
     <div class="two"><label class="f"><span>Fecha de la boda</span><input type="date" name="fecha" value="${esc(b.fecha || '')}"></label>${f('lugar', 'Lugar')}</div>
+    <label class="f"><span>Servicio contratado</span><select name="servicio">${Object.keys(SERVICIOS).map(e => `<option ${((b.servicio || SERV_DEF) === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Estado</span><select name="estado">${ESTADOS.map(e => `<option ${((b.estado || 'Consulta') === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Notas</span><textarea name="notas">${esc(b.notas || '')}</textarea></label>
-    ${b.id ? '' : `<label class="check"><input type="checkbox" name="hitos" checked> Crear calendario de hitos automático (si hay fecha)</label>`}
+    ${b.id ? '' : `<label class="check"><input type="checkbox" name="hitos" checked> Crear calendario de hitos automático (según el servicio, si hay fecha)</label>`}
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
   $('#bf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); const hitos = f.hitos; delete f.hitos;
@@ -306,7 +320,7 @@ function bodaForm(b = {}) {
 }
 function crearHitos(b) {
   const t = todayISO();
-  HITOS.forEach(([w, titulo]) => {
+  (SERVICIOS[b.servicio] || SERVICIOS[SERV_DEF]).hitos.forEach(([w, titulo]) => {
     let f = typeof w === 'number' ? addMonths(b.fecha, w) : addDays(b.fecha, parseInt(w.slice(1), 10));
     if (f < t) f = t;
     db.tareas.push({ id: uid(), titulo, fecha: f, hora: '', tipo: 'tarea', asignado: 'Ambos', bodaId: b.id, hecha: false, notas: '' });
@@ -321,7 +335,7 @@ function viewBoda(v, id) {
   const kv = (k, val) => val ? `<div class="kv"><span>${k}</span><span>${esc(val)}</span></div>` : '';
   v.innerHTML = `<a class="back" href="#bodas">‹ Bodas</a><div class="name" style="font-size:24px">${esc(coupleName(b))}</div>
     <div class="countdown">${esc(b.fecha ? fmtDate(b.fecha) : 'Fecha por definir')}${cd ? ' · ' + cd : ''}</div>
-    <div class="center" style="margin:10px 0"><span class="tag dark">${esc(b.estado || 'Consulta')}</span></div>
+    <div class="center" style="margin:10px 0"><span class="tag dark">${esc(b.servicio || SERV_DEF)}</span> <span class="tag">${esc(b.estado || 'Consulta')}</span></div>
     <div class="card">${kv('Lugar', b.lugar)}${kv('Email', b.email)}${kv('Teléfono', b.tel)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
     <div class="btns"><button class="btn ghost sm" data-act="editBoda" data-id="${id}">Editar</button><button class="btn danger sm" data-act="delBoda" data-id="${id}">Eliminar</button></div>
     <h2>Contratos</h2>${cs.length ? cs.map(contratoRow).join('') : '<div class="empty" style="padding:10px">Sin contratos</div>'}
@@ -414,7 +428,7 @@ function viewContrato(v, a, b) {
   if (a === 'nuevo') {
     const bo = bodaById(b); if (!bo) { location.hash = '#contratos'; return; }
     ce = { id: null, bodaId: b, plantillaId: db.plantillas[0].id, firmado: false, dirty: false, pagosDirty: false,
-      campos: { firmantes: bo.n2 ? 'ambos' : '1', servicio: 'Organización y coordinación integral de la boda: asesoramiento, planificación, coordinación de proveedores y dirección del día del evento.', precio_total_n: '', reserva_n: '', iva: 'no incluye IVA (se añadirá el 21 %)', ciudad: db.profile.ciudad || '', foro: db.profile.ciudad || '', fecha_contrato: todayISO(), extra: '' } };
+      campos: { servicio_tipo: bo.servicio || SERV_DEF, firmantes: bo.n2 ? 'ambos' : '1', servicio: servicioTexto(bo.servicio || SERV_DEF), precio_total_n: '', reserva_n: '', iva: 'no incluye IVA (se añadirá el 21 %)', ciudad: db.profile.ciudad || '', foro: db.profile.ciudad || '', fecha_contrato: todayISO(), extra: '' } };
     ce.campos.calendario_pagos = defaultPagos(ce); ce.texto = genTexto();
   } else {
     const c = db.contratos.find(x => x.id === a); if (!c) { location.hash = '#contratos'; return; }
@@ -429,7 +443,8 @@ function drawContrato(v) {
   v.innerHTML = `<a class="back" href="#boda/${ce.bodaId}">‹ ${esc(coupleName(b))}</a><h1>${ce.id ? 'Contrato' : 'Nuevo contrato'}</h1><p class="sub">${esc(coupleName(b))}</p>
     <label class="f"><span>Plantilla</span><select id="cpl">${db.plantillas.map(p => `<option value="${p.id}" ${p.id === ce.plantillaId ? 'selected' : ''}>${esc(p.nombre)}</option>`).join('')}</select></label>
     ${b.n2 ? `<label class="f"><span>Firman los clientes</span><select data-c="firmantes"><option value="ambos" ${k.firmantes !== '1' && k.firmantes !== '2' ? 'selected' : ''}>Los dos (${esc(b.n1)} y ${esc(b.n2)})</option><option value="1" ${k.firmantes === '1' ? 'selected' : ''}>Solo ${esc(b.n1)}</option><option value="2" ${k.firmantes === '2' ? 'selected' : ''}>Solo ${esc(b.n2)}</option></select></label>` : ''}
-    <label class="f"><span>Servicio contratado</span><textarea data-c="servicio">${esc(k.servicio)}</textarea></label>
+    <label class="f"><span>Servicio</span><select data-c="servicio_tipo">${Object.keys(SERVICIOS).map(o => `<option ${((k.servicio_tipo || SERV_DEF) === o) ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
+    <label class="f"><span>Descripción del servicio</span><textarea data-c="servicio">${esc(k.servicio)}</textarea></label>
     <div class="two">${inp('precio_total_n', 'Precio total (€)', 'inputmode="decimal"')}${inp('reserva_n', 'Reserva (€)', 'inputmode="decimal"')}</div>
     <label class="f"><span>IVA</span><select data-c="iva">${['no incluye IVA (se añadirá el 21 %)', 'incluye IVA', 'está exento de IVA'].map(o => `<option ${k.iva === o ? 'selected' : ''}>${o}</option>`).join('')}</select></label>
     <label class="f"><span>Calendario de pagos</span><textarea data-c="calendario_pagos">${esc(k.calendario_pagos)}</textarea></label>
@@ -448,6 +463,7 @@ function drawContrato(v) {
   $('#ctext', v).oninput = e => { ce.texto = e.target.value; ce.dirty = true; };
   $$('[data-c]', v).forEach(el => el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', () => {
     ce.campos[el.dataset.c] = el.value;
+    if (el.dataset.c === 'servicio_tipo') { ce.campos.servicio = servicioTexto(el.value); $('[data-c=servicio]', v).value = ce.campos.servicio; }
     if (el.dataset.c === 'calendario_pagos') ce.pagosDirty = true;
     if ((el.dataset.c === 'precio_total_n' || el.dataset.c === 'reserva_n') && !ce.pagosDirty) { ce.campos.calendario_pagos = defaultPagos(ce); $('[data-c=calendario_pagos]', v).value = ce.campos.calendario_pagos; }
     if (!ce.dirty) syncText();
