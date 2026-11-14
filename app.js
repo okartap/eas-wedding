@@ -352,7 +352,7 @@ function taskForm(t = {}) {
 }
 
 /* ---------- BODAS ---------- */
-const PROV_BODA = ['Finca','Restaurante','Catering','Fotógrafo','Videógrafo','Florista','Música iglesia','DJ','Montaje escenario','Grupo música cóctel','Grupo música barra libre','Maquilladora','Peluquera','Traje de novia','Joyas','Zapatos','Traje de novio','Otros'];
+const PROV_BODA = ['Finca','Restaurante','Catering','Fotógrafo','Videógrafo','Florista','Música iglesia','DJ','Montaje escenario','Grupo música cóctel','Grupo música barra libre','Maquilladora','Peluquera','Traje de novia','Joyas','Zapatos','Traje de novio','Iluminación','Mesa dulce','Mesa glitter','Recena','Otros'];
 const CEREMONIAS = ['', 'Civil', 'Religiosa con misa', 'Religiosa sin misa'];
 const ESTADOS = ['Consulta', 'Contratada', 'En planificación', 'Celebrada'];
 function viewBodas(v) {
