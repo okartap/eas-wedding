@@ -148,7 +148,7 @@ function downloadBlob(blob, name) {
 }
 
 /* ---------- Estado de vistas ---------- */
-let agendaMode = 'lista', showDone = false, calMonth = todayISO().slice(0, 7), selDay = todayISO(), cMode = 'contratos', ce = null;
+let agendaMode = 'mes', showDone = false, calMonth = todayISO().slice(0, 7), selDay = todayISO(), cMode = 'contratos', ce = null;
 
 /* ---------- Router ---------- */
 function route(keepScroll) {
