@@ -639,7 +639,7 @@ function viewAjustes(v) {
   $$('[data-p]', v).forEach(el => el.addEventListener('input', () => { db.profile[el.dataset.p] = el.value; save(); }));
   $('#pmethod', v).onchange = e => localStorage.setItem('eas.phoneMethod', e.target.value);
   $('#sigf', v).onchange = e => { const f = e.target.files[0]; if (f) imageToSig(f); };
-  $('#impf', v).onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const d = JSON.parse(t); if (!d.bodas || !d.plantillas) throw 0; db = Object.assign(defaults(), d); save(); toast('Copia importada'); refresh(); } catch (x) { toast('Archivo no válido'); } }); };
+  $('#impf', v).onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const d = JSON.parse(t); if (!d.bodas || !d.plantillas) throw 0; if (!confirm('Se sustituirán TODOS los datos de este móvil por los de la copia. ¿Continuar?')) { e.target.value = ''; return; } db = Object.assign(defaults(), d); save(); toast('Copia importada'); refresh(); } catch (x) { toast('Archivo no válido'); } }); };
 }
 function trimCanvas(c) {
   const ctx = c.getContext('2d'), { width: w, height: h } = c, d = ctx.getImageData(0, 0, w, h).data;
@@ -683,7 +683,7 @@ const actions = {
   newTask: () => taskForm(agendaMode === 'mes' ? { fecha: selDay } : {}), newTaskBoda: id => taskForm({ bodaId: id }),
   editTask: id => taskForm(db.tareas.find(t => t.id === id)),
   toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); if (t.hecha) diarioForm({}, { task: t }); },
-  delTask: id => { const t = db.tareas.find(x => x.id === id); log('Eliminó la tarea «' + t?.titulo + '»'); db.tareas = db.tareas.filter(t => t.id !== id); save(); closeSheet(); refresh(); },
+  delTask: id => { const t = db.tareas.find(x => x.id === id); if (!confirm('¿Eliminar «' + (t?.titulo || 'esta tarea') + '»?')) return; log('Eliminó la tarea «' + t?.titulo + '»'); db.tareas = db.tareas.filter(t => t.id !== id); save(); closeSheet(); refresh(); },
   newDiario: id => diarioForm({}, { bodaId: id || '' }), editDiario: id => diarioForm(db.diario.find(e => e.id === id), {}),
   delDiario: id => { if (!confirm('¿Borrar esta nota del diario?')) return; db.diario = db.diario.filter(e => e.id !== id); log('Borró una nota del diario'); save(); closeSheet(); refresh(); },
   newNota: () => notaForm(), editNota: id => notaForm(db.notas.find(n => n.id === id)),
@@ -722,7 +722,7 @@ const actions = {
   autoMine: () => { const t = $('#pt'), p = db.profile; let n = 0; [['nombre', 'planner_nombre'], ['nif', 'planner_nif'], ['direccion', 'planner_direccion'], ['email', 'planner_email'], ['telefono', 'planner_telefono']].forEach(([k, v]) => { const lit = (p[k] || '').trim(); if (lit && t.value.includes(lit)) { n += t.value.split(lit).length - 1; t.value = t.value.split(lit).join('{{' + v + '}}'); } }); toast(n ? n + ' datos sustituidos: pulsa Guardar' : 'No se han encontrado tus datos (revisa Ajustes)'); },
   logout: () => Sync.logout(),
   insVar: id => { const t = $('#pt'), a = t.selectionStart ?? t.value.length, b = t.selectionEnd ?? a, ins = `{{${id}}}`; t.value = t.value.slice(0, a) + ins + t.value.slice(b); t.focus(); t.selectionStart = t.selectionEnd = a + ins.length; },
-  drawSig: sigPad, delSig: () => { delete db.profile.firma; save(); refresh(); },
+  drawSig: sigPad, delSig: () => { if (!confirm('¿Borrar tu firma guardada?')) return; delete db.profile.firma; save(); refresh(); },
   exportDb: () => downloadBlob(new Blob([JSON.stringify(db, null, 1)], { type: 'application/json' }), `eas-wedding-copia-${todayISO()}.json`)
 };
 
@@ -970,7 +970,7 @@ function tarifaForm(provId, t = {}) {
     if (f.size > MAX_ARCH) { e.target.value = ''; return toast('Pesa más de 500 KB: súbelo a Drive y pega el enlace'); }
     const r = new FileReader(); r.onload = () => { archivo = { nombre: f.name, tipo: f.type || 'application/octet-stream', size: f.size, data: r.result }; $('#afile', s).textContent = 'Archivo: ' + f.name; $('#arm', s).style.display = 'inline-flex'; }; r.readAsDataURL(f);
   };
-  $('#arm', s).onclick = () => { archivo = null; $('#afile', s).textContent = 'Sin archivo'; $('#arm', s).style.display = 'none'; $('#afi', s).value = ''; };
+  $('#arm', s).onclick = () => { if (!confirm('¿Quitar el archivo adjunto?')) return; archivo = null; $('#afile', s).textContent = 'Sin archivo'; $('#arm', s).style.display = 'none'; $('#afi', s).value = ''; };
   $('#tff', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
     if (!f.concepto.trim()) { $('input[name=concepto]', s).focus(); return toast('Falta el concepto: escribe un nombre para la tarifa'); }
