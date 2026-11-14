@@ -372,29 +372,67 @@ let bodaProvOpen = false;
 function provBlock(b) {
   const P = b.provs || {}, n = PROV_BODA.filter(c => (P[c] || {}).on).length;
   return `<details class="dgroup" ${bodaProvOpen ? 'open' : ''} ontoggle="bodaProvOpen=this.open"><summary class="group">Proveedores · ${n} de ${PROV_BODA.length} contratados</summary>
-    ${PROV_BODA.map((c, i) => { const x = P[c] || {}; return `<div class="row ${x.on ? 'done' : ''}" style="${x.on ? 'text-decoration:none' : ''}" data-act="provBoda" data-id="${b.id}" data-c="${i}"><span class="bx ${x.on ? 'on' : ''}">${x.on ? '✓' : ''}</span><div class="main"><div class="t" style="${x.on ? 'text-decoration:none;color:var(--text)' : ''}">${esc(c)}</div><div class="s">${x.on ? esc([x.nombre, x.importe ? fmtMoney(x.importe) : ''].filter(Boolean).join(' · ') || 'Contratado') : 'Pendiente · pulsa para rellenar'}</div></div></div>`; }).join('')}
+    ${PROV_BODA.map((c, i) => { const x = P[c] || {}; return `<div class="row ${x.on ? 'done' : ''}" style="${x.on ? 'text-decoration:none' : ''}" data-act="provBoda" data-id="${b.id}" data-c="${i}"><span class="bx ${x.on ? 'on' : ''}">${x.on ? '✓' : ''}</span><div class="main"><div class="t" style="${x.on ? 'text-decoration:none;color:var(--text)' : ''}">${esc(c)}</div><div class="s">${x.on ? esc([(x.provId && provById(x.provId) ? provById(x.provId).nombre : x.nombre), x.importe ? fmtMoney(x.importe) : ''].filter(Boolean).join(' · ') || 'Contratado') : 'Pendiente · pulsa para rellenar'}</div></div></div>`; }).join('')}
   </details>`;
 }
-function provBodaForm(bid, i) {
+const PROV_CAT = { 'Finca': 'Espacios y fincas', 'Restaurante': 'Restaurantes', 'Catering': 'Catering', 'Fotógrafo': 'Fotografía', 'Videógrafo': 'Vídeo', 'Florista': 'Floristería', 'Música iglesia': 'Música en directo', 'DJ': 'DJ', 'Montaje escenario': 'Montaje y escenarios', 'Grupo música cóctel': 'Música en directo', 'Grupo música barra libre': 'Música en directo', 'Maquilladora': 'Maquillaje y peluquería', 'Peluquera': 'Maquillaje y peluquería', 'Traje de novia': 'Vestidos y trajes', 'Joyas': 'Joyería', 'Zapatos': 'Calzado', 'Traje de novio': 'Vestidos y trajes', 'Iluminación': 'Iluminación y sonido', 'Mesa dulce': 'Tartas y dulces', 'Mesa glitter': 'Mesa glitter', 'Recena': 'Recena' };
+// Deja en el directorio de Proveedores las categorías que usa la lista de la boda (una sola vez, sin duplicar).
+function ensureProvCats() {
+  const c = [...cats()], falta = [...new Set(Object.values(PROV_CAT))].filter(n => !c.some(x => fold(x) === fold(n)));
+  if (!falta.length) return;
+  const i = c.findIndex(x => fold(x) === 'otros'); if (i >= 0) c.splice(i, 0, ...falta); else c.push(...falta);
+  db.profile.catProv = c; localSave();
+}
+function provBodaForm(bid, i, opt = {}) {
   const b = bodaById(bid), c = PROV_BODA[i]; if (!b || !c) return;
   b.provs = b.provs || {}; const x = b.provs[c] || {};
+  const cat = PROV_CAT[c], catOk = cat && cats().some(k => k === cat);
+  const sel0 = opt.prov || x.provId || (x.nombre ? '__cur' : '');
+  const optHTML = p => `<option value="${p.id}">${esc(p.nombre)}${p.ciudad ? ' · ' + esc(p.ciudad) : ''}</option>`;
   const s = openSheet(`<h3>${esc(c)}</h3>
     <form id="pbf" novalidate>
-      <label class="f"><span>Nombre del proveedor</span><input name="nombre" value="${esc(x.nombre || '')}" autocomplete="off"></label>
+      <label class="f"><span>Proveedor</span><select name="prov" id="pvsel"></select></label>
+      <p class="hint" style="text-align:center;margin:-4px 0 10px" id="pvhint"></p>
       <label class="f"><span>Teléfono o contacto</span><input name="tel" value="${esc(x.tel || '')}"></label>
       <label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${esc(x.importe || '')}" placeholder="Opcional"></label>
       <label class="f"><span>Notas</span><textarea name="notas">${esc(x.notas || '')}</textarea></label>
       <div class="btns"><button class="btn" type="submit">${x.on ? 'Guardar' : 'Guardar y marcar contratado'}</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div>
       ${x.on ? `<div class="btns"><button class="btn danger sm" type="button" id="pquit">Quitar como contratado</button></div>` : ''}
     </form>`);
+  const sel = $('#pvsel', s), hint = $('#pvhint', s); let all = !catOk || c === 'Otros', prev = sel0;
+  const fill = () => {
+    const list = db.proveedores.slice().sort((p, q) => (p.nombre || '').localeCompare(q.nombre || '', 'es'));
+    let h = '<option value="">Elegir proveedor…</option>';
+    if (x.nombre && !x.provId) h += `<option value="__cur">${esc(x.nombre)} (apuntado a mano)</option>`;
+    if (all) {
+      const g = {}; list.forEach(p => (g[p.categoria || 'Sin categoría'] ||= []).push(p));
+      h += Object.keys(g).sort((m, n) => m.localeCompare(n, 'es')).map(k => `<optgroup label="${esc(k)}">${g[k].map(optHTML).join('')}</optgroup>`).join('');
+    } else h += list.filter(p => p.categoria === cat).map(optHTML).join('');
+    h += '<option value="__new">＋ Añadir proveedor nuevo…</option>';
+    sel.innerHTML = h; sel.value = [...sel.options].some(o => o.value === prev) ? prev : '';
+    const n = all ? 0 : list.filter(p => p.categoria === cat).length;
+    hint.innerHTML = all ? (catOk && c !== 'Otros' ? 'Se muestran todos tus proveedores. <u data-k="cat" style="cursor:pointer">Ver solo «' + esc(cat) + '»</u>' : 'Se muestran todos tus proveedores.')
+      : (n ? '' : 'Aún no tienes proveedores de «' + esc(cat) + '». ') + 'Se muestran los de «' + esc(cat) + '». <u data-k="all" style="cursor:pointer">Ver todas las categorías</u>';
+  };
+  fill();
+  hint.addEventListener('click', e => { const k = e.target.dataset.k; if (!k) return; all = k === 'all'; prev = sel.value; fill(); });
+  sel.addEventListener('change', () => {
+    if (sel.value === '__new') {
+      const keep = prev; sel.value = keep;
+      provForm({ categoria: catOk ? cat : '' }, { onSaved: rec => provBodaForm(bid, i, { prov: rec.id }) }); return;
+    }
+    prev = sel.value; const p = provById(sel.value), t = $('[name=tel]', s);
+    if (p && p.tel && !t.value.trim()) t.value = p.tel;
+  });
   $('#pbf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
-    if (!f.nombre) { toast('Falta el nombre del proveedor: no se ha marcado'); e.target.nombre.focus(); return; }
+    const pr = provById(f.prov), nombre = pr ? pr.nombre : (f.prov === '__cur' ? x.nombre : '');
+    if (!nombre) { toast('Elige un proveedor de la lista: no se ha marcado'); sel.focus(); return; }
     let imp = '';
     if (f.importe) { imp = parseFloat(f.importe.replace(/\./g, '').replace(',', '.')); if (isNaN(imp) || imp < 0) { toast('El importe no es válido: no se ha marcado'); e.target.importe.focus(); return; } }
     if (f.tel && f.tel.replace(/\D/g, '').length < 6 && /^[\d\s+()-]+$/.test(f.tel)) { toast('El teléfono parece incompleto: no se ha marcado'); e.target.tel.focus(); return; }
-    b.provs[c] = { on: true, nombre: f.nombre, tel: f.tel, importe: imp, notas: f.notas };
-    log('Marcó «' + c + '» como contratado en la boda de ' + coupleName(b) + ' (' + f.nombre + ')'); save(); closeSheet(); bodaProvOpen = true; refresh(); toast(c + ' marcado como contratado');
+    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, importe: imp, notas: f.notas };
+    log('Marcó «' + c + '» como contratado en la boda de ' + coupleName(b) + ' (' + nombre + ')'); save(); closeSheet(); bodaProvOpen = true; refresh(); toast(c + ' marcado como contratado');
   });
   const q = $('#pquit', s);
   if (q) q.addEventListener('click', () => {
@@ -426,7 +464,7 @@ function bodaForm(b = {}) {
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
   $('#bf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); const hitos = f.hitos; delete f.hitos;
-    f.provs = {}; PROV_BODA.forEach((c, i) => { const on = f['pv' + i] === 'on', nombre = (f['pn' + i] || '').trim(); const pv = (b.provs || {})[c] || {}; if (on || nombre) f.provs[c] = { ...pv, on: on || !!nombre, nombre }; else if (pv.tel || pv.importe || pv.notas) f.provs[c] = { ...pv, on: false, nombre: '' }; delete f['pv' + i]; delete f['pn' + i]; });
+    f.provs = {}; PROV_BODA.forEach((c, i) => { const on = f['pv' + i] === 'on', nombre = (f['pn' + i] || '').trim(); const pv = (b.provs || {})[c] || {}; if (on || nombre) { const np = { ...pv, on: on || !!nombre, nombre }; if (np.provId && (provById(np.provId) || {}).nombre !== nombre) np.provId = ''; f.provs[c] = np; } else if (pv.tel || pv.importe || pv.notas) f.provs[c] = { ...pv, on: false, nombre: '' }; delete f['pv' + i]; delete f['pn' + i]; });
     let rec;
     if (b.id) { rec = db.bodas.find(x => x.id === b.id); Object.assign(rec, f); }
     else { rec = { id: uid(), ...f }; db.bodas.push(rec); if (hitos && rec.fecha) crearHitos(rec); }
@@ -916,6 +954,7 @@ async function addToPhone(items) {
 const CAT_DEF = ['Espacios y fincas', 'Catering', 'Fotografía', 'Vídeo', 'Música en directo', 'DJ', 'Iluminación y sonido', 'Floristería', 'Decoración', 'Papelería e invitaciones', 'Tartas y dulces', 'Vestidos y trajes', 'Maquillaje y peluquería', 'Transporte', 'Otros'];
 const cats = () => (db.profile.catProv && db.profile.catProv.length ? db.profile.catProv : CAT_DEF);
 const provById = id => db.proveedores.find(p => p.id === id);
+ensureProvCats();
 const origen = p => [p.ciudad, p.provincia].filter(Boolean).join(', ');
 const tarifasDe = id => db.tarifas.filter(t => t.provId === id).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '') || (b.creada || '').localeCompare(a.creada || ''));
 const webUrl = u => /^https?:\/\//i.test(u) ? u : 'https://' + u;
@@ -952,7 +991,7 @@ function viewProveedores(v) {
   $('#pq', v).addEventListener('input', e => { provQ = e.target.value; $('#plist').innerHTML = provListHTML(); });
   $('#pz', v)?.addEventListener('change', e => { provZona = e.target.value; $('#plist').innerHTML = provListHTML(); });
 }
-function provForm(p = {}) {
+function provForm(p = {}, opt = {}) {
   const f = (n, l, ex = '') => `<label class="f"><span>${l}</span><input name="${n}" value="${esc(p[n] || '')}" ${ex}></label>`;
   const provs = [...new Set(db.proveedores.map(x => (x.provincia || '').trim()).filter(Boolean))];
   const cur = p.categoria || '', opts = [...cats()]; if (cur && !opts.includes(cur)) opts.push(cur);
@@ -968,7 +1007,7 @@ function provForm(p = {}) {
   $('#pf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
     let rec; if (p.id) { rec = provById(p.id); Object.assign(rec, f); } else { rec = { id: uid(), ...f, creada: new Date().toISOString() }; db.proveedores.push(rec); }
-    log((p.id ? 'Editó' : 'Añadió') + ' el proveedor «' + rec.nombre + '»'); save(); closeSheet(); location.hash = '#proveedor/' + rec.id; refresh();
+    log((p.id ? 'Editó' : 'Añadió') + ' el proveedor «' + rec.nombre + '»'); save(); closeSheet(); if (opt.onSaved) { refresh(); opt.onSaved(rec); return; } location.hash = '#proveedor/' + rec.id; refresh();
   });
 }
 function tarifaHTML(t) {

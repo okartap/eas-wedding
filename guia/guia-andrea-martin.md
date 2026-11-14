@@ -44,8 +44,11 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
 - **Otros datos** (desplegable en el formulario): **número de invitados** y, para repasar en la **primera reunión con los novios**, la lista de **proveedores contratados** (casilla y nombre opcional de cada uno, 22 en total): Finca, Restaurante, Catering, Fotógrafo, Videógrafo, Florista, Música iglesia, DJ, Montaje escenario, Grupo música cóctel, Grupo música barra libre, Maquilladora, Peluquera, Traje de novia, Joyas, Zapatos, Traje de novio, Iluminación, Mesa dulce, Mesa glitter, Recena y Otros.
 - **Proveedores de la boda** (desplegable en la ficha, con el recuento «X de 22 contratados»):
   - Cada proveedor sale con su casilla. Los **contratados** llevan la casilla marcada y muestran nombre e importe; los **pendientes** dicen «Pendiente · pulsa para rellenar».
-  - **Pulsar uno pendiente** abre sus datos: **nombre del proveedor (obligatorio)**, teléfono o contacto, importe y notas. Con **«Guardar y marcar contratado»** queda marcado.
-  - **Si algo falla, la app avisa y no lo marca**: falta el nombre, el importe no es un número válido o el teléfono parece incompleto.
+  - **Pulsar uno pendiente** abre sus datos. El **proveedor se elige en un desplegable** con los de tu lista de Proveedores de esa categoría (por ejemplo, para «Finca» salen las de «Espacios y fincas»). Al elegirlo se rellena su teléfono. Después se pone el importe y las notas y se pulsa **«Guardar y marcar contratado»**.
+  - **Si el proveedor no está**: la última opción del desplegable es **«＋ Añadir proveedor nuevo…»**. Abre el formulario de Proveedores, lo guarda en tu lista y vuelve aquí con él ya elegido.
+  - **Ver todos los proveedores**: bajo el desplegable, el enlace **«Ver todas las categorías»** muestra toda la lista agrupada por categoría, por si un proveedor está guardado en otra.
+  - Las categorías de la lista de la boda ya están en Proveedores (se añadieron Restaurantes, Montaje y escenarios, Joyería, Calzado, Mesa glitter y Recena). Se pueden renombrar en Proveedores → Categorías.
+  - **Si algo falla, la app avisa y no lo marca**: no se ha elegido proveedor, el importe no es un número válido o el teléfono parece incompleto.
   - Pulsar uno contratado permite **editar sus datos** o **«Quitar como contratado»** (pide confirmación y conserva los datos).
 - Los hitos de cada servicio se crean solos (20 para Integral, 8 para Día B) y aparecen en la agenda. Las reuniones y visitas de esos hitos ya vienen con su tipo (Reunión/cita o Visita/prueba).
 - Botón **«Crear boda de ejemplo»** en Ajustes para practicar; se borra como cualquier boda.
