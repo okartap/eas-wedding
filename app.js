@@ -1029,7 +1029,9 @@ Object.assign(actions, {
 route();
 Sync.init();
 Net.init();
+Drive.restore();
 Drive.loadGIS().then(() => Drive.silent()).catch(() => { });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !Drive.valid()) Drive.loadGIS().then(() => Drive.silent()).catch(() => { }); });
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
 
 // Al volver a la app desde otra (p. ej. Calendario) iOS puede soltar la imagen del logo: se vuelve a cargar.

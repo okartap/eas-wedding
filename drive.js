@@ -24,6 +24,10 @@ const Net = {
 
 const Drive = {
   token: null, exp: 0,
+  // Se guarda el permiso en el móvil (caduca a la hora): al cerrar y volver a abrir la app se reutiliza sin pedir nada.
+  keep(tok, secs) { this.token = tok; this.exp = Date.now() + Math.max(0, (secs || 3600) - 120) * 1000; try { localStorage.setItem('eas.drive.tok', JSON.stringify({ t: tok, e: this.exp })); } catch (e) { } },
+  restore() { try { const o = JSON.parse(localStorage.getItem('eas.drive.tok') || 'null'); if (o && o.t && o.e > Date.now()) { this.token = o.t; this.exp = o.e; return true; } localStorage.removeItem('eas.drive.tok'); } catch (e) { } return false; },
+  drop() { this.token = null; this.exp = 0; try { localStorage.removeItem('eas.drive.tok'); } catch (e) { } },
   loadGIS() {
     return new Promise((ok, ko) => {
       if (window.google?.accounts?.oauth2) return ok();
@@ -33,10 +37,11 @@ const Drive = {
   },
   // Reconexión silenciosa al abrir la app (si Google lo permite sin ventana; si no, se ignora)
   silent() {
-    if (!localStorage.getItem('eas.drive') || this.valid() || !navigator.onLine) return;
+    if (this.valid() || this.restore()) return;
+    if (!localStorage.getItem('eas.drive') || !navigator.onLine) return;
     try {
-      google.accounts.oauth2.initTokenClient({ client_id: window.GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file', prompt: 'none',
-        callback: r => { if (!r.error) { this.token = r.access_token; this.exp = Date.now() + (r.expires_in - 60) * 1000; } }, error_callback: () => { } }).requestAccessToken({ prompt: 'none' });
+      google.accounts.oauth2.initTokenClient({ client_id: window.GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: r => { if (!r.error && r.access_token) this.keep(r.access_token, r.expires_in); }, error_callback: () => { } }).requestAccessToken({ prompt: '' });
     } catch (e) { }
   },
   valid() { return !!this.token && Date.now() < this.exp; },
@@ -47,7 +52,7 @@ const Drive = {
     return new Promise((ok, ko) => {
       const c = google.accounts.oauth2.initTokenClient({
         client_id: window.GOOGLE_CLIENT_ID, scope: 'https://www.googleapis.com/auth/drive.file',
-        callback: r => { if (r.error) return ko(new Error(r.error === 'access_denied' ? 'Acceso a Drive cancelado' : r.error)); this.token = r.access_token; this.exp = Date.now() + (r.expires_in - 60) * 1000; localStorage.setItem('eas.drive', '1'); ok(this.token); },
+        callback: r => { if (r.error) return ko(new Error(r.error === 'access_denied' ? 'Acceso a Drive cancelado' : r.error)); this.keep(r.access_token, r.expires_in); localStorage.setItem('eas.drive', '1'); ok(this.token); },
         error_callback: e => ko(new Error(e?.type === 'popup_closed' ? 'Ventana de Google cerrada' : e?.type === 'popup_failed_to_open' ? 'El navegador bloqueó la ventana de Google' : 'No se pudo abrir el acceso de Google'))
       });
       c.requestAccessToken({ prompt: localStorage.getItem('eas.drive') ? '' : 'consent' });
@@ -57,7 +62,7 @@ const Drive = {
     if (!this.valid()) throw new Error('Hay que conectar con Google primero');
     const t = this.token;
     const r = await fetch(url, { ...opt, headers: { ...(opt.headers || {}), Authorization: 'Bearer ' + t } });
-    if (r.status === 401) { this.token = null; throw new Error('La sesión de Google caducó: inténtalo de nuevo'); }
+    if (r.status === 401) { this.drop(); throw new Error('La sesión de Google caducó: inténtalo de nuevo'); }
     if (!r.ok) throw new Error('Drive respondió con error ' + r.status);
     return r;
   },
