@@ -26,7 +26,7 @@ En {{ciudad}}, a {{fecha_contrato}}.
 
 De una parte, {{planner_nombre}}, con NIF {{planner_nif}} y domicilio en {{planner_direccion}}, que actúa bajo la marca {{marca}} (en adelante, "la Wedding Planner").
 
-De otra parte, {{clientes}}, con domicilio a efectos de notificaciones en {{cliente_direccion}}, correo electrónico {{cliente_email}} y teléfono {{cliente_telefono}} (en adelante, "los Clientes").
+De otra parte, {{clientes}}, con domicilio a efectos de notificaciones en {{cliente_direccion}} y teléfono de contacto {{cliente_telefono}} (en adelante, "los Clientes").
 
 Ambas partes se reconocen capacidad legal suficiente para contratar y
 
@@ -74,7 +74,7 @@ Y en prueba de conformidad, firman el presente contrato por duplicado y a un sol
 const VARS = [
   ['planner_nombre', 'Mi nombre/razón'], ['planner_nif', 'Mi NIF'], ['planner_direccion', 'Mi dirección'], ['planner_email', 'Mi email'], ['planner_telefono', 'Mi teléfono'], ['marca', 'Marca'],
   ['clientes', 'Clientes (según firmantes)'], ['cliente_1_nombre', 'Cliente 1'], ['cliente_1_dni', 'DNI 1'], ['cliente_2_nombre', 'Cliente 2'], ['cliente_2_dni', 'DNI 2'],
-  ['cliente_direccion', 'Dirección cliente'], ['cliente_email', 'Email cliente'], ['cliente_telefono', 'Teléfono cliente'],
+  ['cliente_direccion', 'Dirección cliente'], ['cliente_telefono', 'Teléfono cliente'], ['cliente_1_telefono', 'Teléfono 1'], ['cliente_2_telefono', 'Teléfono 2'],
   ['fecha_boda', 'Fecha boda'], ['lugar_boda', 'Lugar boda'], ['servicio', 'Servicio'], ['precio_total', 'Precio total'], ['reserva', 'Reserva'], ['resto', 'Resto'],
   ['iva', 'IVA'], ['calendario_pagos', 'Calendario pagos'], ['ciudad', 'Ciudad firma'], ['fecha_contrato', 'Fecha contrato'], ['foro', 'Jurisdicción'], ['bloque_extra', 'Cláusulas extra']
 ];
@@ -115,6 +115,7 @@ function load() {
 function localSave() { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) { toast('No se pudo guardar (almacenamiento lleno)'); } }
 function save() { localSave(); Sync.push(); }
 load();
+(db.plantillas || []).forEach(t => { if (t.texto && t.texto.includes(', correo electrónico {{cliente_email}} y teléfono {{cliente_telefono}}')) t.texto = t.texto.replace(', correo electrónico {{cliente_email}} y teléfono {{cliente_telefono}}', ' y teléfono de contacto {{cliente_telefono}}'); });
 db.historial ||= []; db.proveedores ||= []; db.tarifas ||= []; db.diario ||= [];
 function currentUser() { const u = localStorage.getItem('eas.user'); return USERS.includes(u) ? u : 'Andrea'; }
 function log(texto) { db.historial.push({ id: uid(), fecha: new Date().toISOString(), usuario: currentUser(), texto }); if (db.historial.length > 400) db.historial = db.historial.slice(-300); }
@@ -366,11 +367,49 @@ function viewBodas(v) {
     }).join('') : `<div class="empty">Todavía no hay bodas.<br>Pulsa + para crear la primera.</div>`}
     <button class="fab" data-act="newBoda" aria-label="Nueva boda">+</button>`;
 }
+
+let bodaProvOpen = false;
+function provBlock(b) {
+  const P = b.provs || {}, n = PROV_BODA.filter(c => (P[c] || {}).on).length;
+  return `<details class="dgroup" ${bodaProvOpen ? 'open' : ''} ontoggle="bodaProvOpen=this.open"><summary class="group">Proveedores · ${n} de ${PROV_BODA.length} contratados</summary>
+    ${PROV_BODA.map((c, i) => { const x = P[c] || {}; return `<div class="row ${x.on ? 'done' : ''}" style="${x.on ? 'text-decoration:none' : ''}" data-act="provBoda" data-id="${b.id}" data-c="${i}"><span class="bx ${x.on ? 'on' : ''}">${x.on ? '✓' : ''}</span><div class="main"><div class="t" style="${x.on ? 'text-decoration:none;color:var(--text)' : ''}">${esc(c)}</div><div class="s">${x.on ? esc([x.nombre, x.importe ? fmtMoney(x.importe) : ''].filter(Boolean).join(' · ') || 'Contratado') : 'Pendiente · pulsa para rellenar'}</div></div></div>`; }).join('')}
+  </details>`;
+}
+function provBodaForm(bid, i) {
+  const b = bodaById(bid), c = PROV_BODA[i]; if (!b || !c) return;
+  b.provs = b.provs || {}; const x = b.provs[c] || {};
+  const s = openSheet(`<h3>${esc(c)}</h3>
+    <form id="pbf" novalidate>
+      <label class="f"><span>Nombre del proveedor</span><input name="nombre" value="${esc(x.nombre || '')}" autocomplete="off"></label>
+      <label class="f"><span>Teléfono o contacto</span><input name="tel" value="${esc(x.tel || '')}"></label>
+      <label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${esc(x.importe || '')}" placeholder="Opcional"></label>
+      <label class="f"><span>Notas</span><textarea name="notas">${esc(x.notas || '')}</textarea></label>
+      <div class="btns"><button class="btn" type="submit">${x.on ? 'Guardar' : 'Guardar y marcar contratado'}</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div>
+      ${x.on ? `<div class="btns"><button class="btn danger sm" type="button" id="pquit">Quitar como contratado</button></div>` : ''}
+    </form>`);
+  $('#pbf', s).addEventListener('submit', e => {
+    e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
+    if (!f.nombre) { toast('Falta el nombre del proveedor: no se ha marcado'); e.target.nombre.focus(); return; }
+    let imp = '';
+    if (f.importe) { imp = parseFloat(f.importe.replace(/\./g, '').replace(',', '.')); if (isNaN(imp) || imp < 0) { toast('El importe no es válido: no se ha marcado'); e.target.importe.focus(); return; } }
+    if (f.tel && f.tel.replace(/\D/g, '').length < 6 && /^[\d\s+()-]+$/.test(f.tel)) { toast('El teléfono parece incompleto: no se ha marcado'); e.target.tel.focus(); return; }
+    b.provs[c] = { on: true, nombre: f.nombre, tel: f.tel, importe: imp, notas: f.notas };
+    log('Marcó «' + c + '» como contratado en la boda de ' + coupleName(b) + ' (' + f.nombre + ')'); save(); closeSheet(); bodaProvOpen = true; refresh(); toast(c + ' marcado como contratado');
+  });
+  const q = $('#pquit', s);
+  if (q) q.addEventListener('click', () => {
+    if (!confirm('¿Quitar «' + c + '» como contratado? Se mantienen sus datos.')) return;
+    b.provs[c].on = false; log('Desmarcó «' + c + '» en la boda de ' + coupleName(b)); save(); closeSheet(); bodaProvOpen = true; refresh();
+  });
+}
 function bodaForm(b = {}) {
   const f = (n, l, ex = '') => `<label class="f"><span>${l}</span><input name="${n}" value="${esc(b[n] || '')}" ${ex}></label>`;
   const s = openSheet(`<h3>${b.id ? 'Editar boda' : 'Nueva boda'}</h3>
-    <form id="bf"><div class="two">${f('n1', 'Nombre 1', 'required')}${f('dni1', 'DNI 1')}</div><div class="two">${f('n2', 'Nombre 2')}${f('dni2', 'DNI 2')}</div>
-    <div class="two">${f('email', 'Email', 'type="email"')}${f('tel', 'Teléfono', 'type="tel"')}</div>${f('dir', 'Dirección de los clientes')}
+    <form id="bf"><div class="two">${f('n1', 'Nombre 1', 'required')}${f('dni1', 'DNI 1')}</div>
+    <label class="f"><span>Teléfono 1</span><input name="tel1" type="tel" value="${esc(b.tel1 ?? b.tel ?? '')}"></label>
+    <div class="two">${f('n2', 'Nombre 2')}${f('dni2', 'DNI 2')}</div>
+    <label class="f"><span>Teléfono 2</span><input name="tel2" type="tel" value="${esc(b.tel2 || '')}"></label>
+    ${f('dir', 'Dirección de los clientes (para el contrato)')}
     <label class="f"><span>Fecha de la boda</span><input type="date" name="fecha" value="${esc(b.fecha || '')}"></label>
     <label class="f"><span>Tipo de ceremonia</span><select name="ceremonia">${CEREMONIAS.map(e => `<option value="${e}" ${((b.ceremonia || '') === e) ? 'selected' : ''}>${e || 'Sin definir'}</option>`).join('')}</select></label>
     <div class="two">${f('lugarCer', 'Lugar de la ceremonia')}<label class="f"><span>Hora de la ceremonia</span><input type="time" name="horaCer" value="${esc(b.horaCer || '')}"></label></div>
@@ -387,7 +426,7 @@ function bodaForm(b = {}) {
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
   $('#bf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); const hitos = f.hitos; delete f.hitos;
-    f.provs = {}; PROV_BODA.forEach((c, i) => { const on = f['pv' + i] === 'on', nombre = (f['pn' + i] || '').trim(); if (on || nombre) f.provs[c] = { on: on || !!nombre, nombre }; delete f['pv' + i]; delete f['pn' + i]; });
+    f.provs = {}; PROV_BODA.forEach((c, i) => { const on = f['pv' + i] === 'on', nombre = (f['pn' + i] || '').trim(); const pv = (b.provs || {})[c] || {}; if (on || nombre) f.provs[c] = { ...pv, on: on || !!nombre, nombre }; else if (pv.tel || pv.importe || pv.notas) f.provs[c] = { ...pv, on: false, nombre: '' }; delete f['pv' + i]; delete f['pn' + i]; });
     let rec;
     if (b.id) { rec = db.bodas.find(x => x.id === b.id); Object.assign(rec, f); }
     else { rec = { id: uid(), ...f }; db.bodas.push(rec); if (hitos && rec.fecha) crearHitos(rec); }
@@ -413,8 +452,8 @@ function viewBoda(v, id) {
   v.innerHTML = `<a class="back" href="#bodas">‹ Bodas</a><div class="name" style="font-size:24px">${esc(coupleName(b))}</div>
     <div class="countdown">${esc(b.fecha ? fmtDate(b.fecha) : 'Fecha por definir')}${cd ? ' · ' + cd : ''}</div>
     <div class="center" style="margin:10px 0"><span class="tag dark">${esc(b.servicio || SERV_DEF)}</span> <span class="tag">${esc(b.estado || 'Consulta')}</span></div>
-    <div class="card">${kv('Ceremonia', b.ceremonia)}${kv('Lugar de la ceremonia', b.lugarCer ? b.lugarCer + (b.horaCer ? ' · ' + b.horaCer + ' h' : '') : (b.horaCer ? b.horaCer + ' h' : ''))}${kv('Celebración', b.lugar ? b.lugar + (b.horaCel ? ' · ' + b.horaCel + ' h' : '') : (b.horaCel ? b.horaCel + ' h' : ''))}${kv('Invitados', b.invitados)}${kv('Email', b.email)}${kv('Teléfono', b.tel)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
-    ${Object.keys(b.provs || {}).some(c => b.provs[c].on) ? `<h2>Proveedores contratados</h2><div class="card">${PROV_BODA.filter(c => (b.provs[c] || {}).on).map(c => kv(c, b.provs[c].nombre || 'Contratado')).join('')}</div>` : ''}
+    <div class="card">${kv('Ceremonia', b.ceremonia)}${kv('Lugar de la ceremonia', b.lugarCer ? b.lugarCer + (b.horaCer ? ' · ' + b.horaCer + ' h' : '') : (b.horaCer ? b.horaCer + ' h' : ''))}${kv('Celebración', b.lugar ? b.lugar + (b.horaCel ? ' · ' + b.horaCel + ' h' : '') : (b.horaCel ? b.horaCel + ' h' : ''))}${kv('Invitados', b.invitados)}${kv('Teléfono 1', b.tel1 ?? b.tel)}${kv('Teléfono 2', b.tel2)}${kv('Dirección', b.dir)}${kv('DNI 1', b.dni1)}${kv('DNI 2', b.dni2)}${kv('Notas', b.notas)}</div>
+    ${provBlock(b)}
     <div class="btns"><button class="btn ghost sm" data-act="editBoda" data-id="${id}">Editar</button><button class="btn danger sm" data-act="delBoda" data-id="${id}">Eliminar</button></div>
     <h2>Contratos</h2>${cs.length ? cs.map(contratoRow).join('') : '<div class="empty" style="padding:10px">Sin contratos</div>'}
     <div class="btns"><a class="btn sm" href="#contrato/nuevo/${id}">+ Nuevo contrato</a></div>
@@ -486,7 +525,7 @@ function varsFor(c) {
     : `${dniTxt(b.n1, b.dni1)}${b.n2 ? ', que contrata los servicios para la boda que celebrará con ' + b.n2 : ''}`;
   return {
     clientes, planner_nombre: p.nombre, planner_nif: p.nif, planner_direccion: p.direccion, planner_email: p.email, planner_telefono: p.telefono, marca: p.marca || 'Ea’s Wedding',
-    cliente_1_nombre: b.n1, cliente_1_dni: b.dni1, cliente_2_nombre: b.n2, cliente_2_dni: b.dni2, cliente_direccion: b.dir, cliente_email: b.email, cliente_telefono: b.tel,
+    cliente_1_nombre: b.n1, cliente_1_dni: b.dni1, cliente_2_nombre: b.n2, cliente_2_dni: b.dni2, cliente_direccion: b.dir, cliente_email: '', cliente_telefono: [b.tel1 ?? b.tel, b.tel2].filter(Boolean).join(' / '), cliente_1_telefono: b.tel1 ?? b.tel ?? '', cliente_2_telefono: b.tel2 || '',
     fecha_boda: b.fecha ? fmtDate(b.fecha) : '', lugar_boda: b.lugar, servicio: k.servicio, precio_total: fmtMoney(total), reserva: fmtMoney(res), resto: (!isNaN(total) && !isNaN(res)) ? fmtMoney(total - res) : '',
     iva: k.iva, calendario_pagos: k.calendario_pagos, ciudad: k.ciudad, fecha_contrato: k.fecha_contrato ? fmtDate(k.fecha_contrato) : '', foro: k.foro,
     bloque_extra: k.extra && k.extra.trim() ? '\n## DUODÉCIMA.- Condiciones adicionales\n' + k.extra.trim() + '\n' : ''
@@ -695,6 +734,7 @@ const actions = {
   newTask: () => taskForm(agendaMode === 'mes' ? { fecha: selDay } : {}), newTaskBoda: id => taskForm({ bodaId: id }),
   editTask: id => taskForm(db.tareas.find(t => t.id === id)),
   toggleTask: id => { const t = db.tareas.find(x => x.id === id); t.hecha = !t.hecha; log((t.hecha ? 'Completó' : 'Reabrió') + ' la tarea «' + t.titulo + '»'); save(); refresh(); if (t.hecha) diarioForm({}, { task: t }); },
+  provBoda: (id, t) => provBodaForm(id, +t.dataset.c),
   toggleTheme: () => {
     const dark = document.documentElement.dataset.theme !== 'dark';
     if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
@@ -713,7 +753,7 @@ const actions = {
   newBoda: () => bodaForm(), openBoda: id => { location.hash = '#boda/' + id; }, editBoda: id => bodaForm(bodaById(id)),
   delBoda: id => { if (!confirm('¿Eliminar esta boda con sus tareas, contratos y diario?')) return; log('Eliminó la boda de ' + coupleName(bodaById(id))); db.bodas = db.bodas.filter(b => b.id !== id); db.tareas = db.tareas.filter(t => t.bodaId !== id); db.contratos = db.contratos.filter(c => c.bodaId !== id); db.diario = db.diario.filter(e => e.bodaId !== id); save(); location.hash = '#bodas'; },
   demoBoda: () => {
-    const rec = { id: uid(), n1: 'Laura (ejemplo)', dni1: '', n2: 'Carlos (ejemplo)', dni2: '', email: 'ejemplo@correo.com', tel: '600 000 000', dir: 'Calle Ejemplo 1, Murcia',
+    const rec = { id: uid(), n1: 'Laura (ejemplo)', dni1: '', n2: 'Carlos (ejemplo)', dni2: '', tel1: '600 000 001', tel2: '600 000 002', dir: 'Calle Ejemplo 1, Murcia',
       fecha: addMonths(todayISO(), 5), lugar: 'Finca de ejemplo', servicio: 'Organización Integral', estado: 'Contratada', notas: 'Boda de prueba. Se puede eliminar.' };
     db.bodas.push(rec); crearHitos(rec);
     db.tareas.push({ id: uid(), titulo: 'Llamar a Laura y Carlos (ejemplo)', fecha: addDays(todayISO(), 2), hora: '10:30', tipo: 'cita', asignado: 'Andrea', bodaId: rec.id, hecha: false, notas: '' });
