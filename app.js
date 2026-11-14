@@ -561,6 +561,8 @@ function viewAjustes(v) {
     ${Sync.user ? '<div class="btns" style="margin-top:0"><button class="btn ghost sm" data-act="logout">Cerrar sesión</button></div>' : ''}
     <h2>Historial de cambios</h2>
     ${db.historial.length ? [...db.historial].reverse().slice(0, 40).map(h => `<div class="hist"><b>${esc(h.usuario)}</b> · ${esc(h.texto)}<span>${esc(new Date(h.fecha).toLocaleString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span></div>`).join('') : '<p class="hint">Aún no hay cambios registrados.</p>'}
+    <h2>Datos de ejemplo</h2><p class="hint">Crea una boda de prueba con su calendario para ver cómo funciona. Se elimina desde su ficha con «Eliminar».</p>
+    <div class="btns" style="margin-top:0"><button class="btn ghost sm" data-act="demoBoda">Crear boda de ejemplo</button></div>
     <h2>Copia de seguridad</h2><p class="hint">Los datos se guardan solo en este dispositivo. Descarga una copia de vez en cuando.</p>
     <div class="btns"><button class="btn ghost sm" data-act="exportDb">Exportar copia</button><label class="btn ghost sm" style="cursor:pointer">Importar copia<input type="file" accept="application/json,.json" id="impf" hidden></label></div>
     <h2>Instalar en el iPhone</h2><p class="hint">Abre la app en Safari → botón Compartir → “Añadir a pantalla de inicio”.</p>`;
@@ -618,6 +620,13 @@ const actions = {
   copyNotas: () => copyText(`Mejoras y fallos de Ea’s Wedding\n${db.notas.filter(n => !n.hecha).map(notaLine).join('\n')}`),
   newBoda: () => bodaForm(), openBoda: id => { location.hash = '#boda/' + id; }, editBoda: id => bodaForm(bodaById(id)),
   delBoda: id => { if (!confirm('¿Eliminar esta boda con sus tareas y contratos?')) return; log('Eliminó la boda de ' + coupleName(bodaById(id))); db.bodas = db.bodas.filter(b => b.id !== id); db.tareas = db.tareas.filter(t => t.bodaId !== id); db.contratos = db.contratos.filter(c => c.bodaId !== id); save(); location.hash = '#bodas'; },
+  demoBoda: () => {
+    const rec = { id: uid(), n1: 'Laura (ejemplo)', dni1: '', n2: 'Carlos (ejemplo)', dni2: '', email: 'ejemplo@correo.com', tel: '600 000 000', dir: 'Calle Ejemplo 1, Murcia',
+      fecha: addMonths(todayISO(), 5), lugar: 'Finca de ejemplo', servicio: 'Organización Integral', estado: 'Contratada', notas: 'Boda de prueba. Se puede eliminar.' };
+    db.bodas.push(rec); crearHitos(rec);
+    db.tareas.push({ id: uid(), titulo: 'Llamar a Laura y Carlos (ejemplo)', fecha: addDays(todayISO(), 2), hora: '10:30', tipo: 'cita', asignado: 'Andrea', bodaId: rec.id, hecha: false, notas: '' });
+    log('Creó la boda de ejemplo'); save(); toast('Boda de ejemplo creada'); location.hash = '#boda/' + rec.id;
+  },
   hitosBoda: id => { crearHitos(bodaById(id)); save(); toast('Hitos añadidos'); refresh(); },
   cMode: id => { cMode = id; refresh(); }, newContrato: pickBoda, goNuevoContrato: id => { closeSheet(); location.hash = '#contrato/nuevo/' + id; },
   openContrato: id => { location.hash = '#contrato/' + id; },
