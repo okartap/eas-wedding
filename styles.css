@@ -140,3 +140,7 @@ input[type=date],input[type=time]{min-height:48px;text-align:center;display:bloc
 .dgroup>summary::-webkit-details-marker{display:none}
 .dgroup>summary::after{content:'▾';margin-left:8px;display:inline-block;transition:transform .2s}
 .dgroup:not([open])>summary::after{transform:rotate(-90deg)}
+
+.net{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);right:8px;width:9px;height:9px;border-radius:50%;z-index:60;opacity:.85;cursor:pointer;box-shadow:0 0 0 3px transparent;transition:background .3s}
+.net.on{background:#6aa384}.net.off{background:#c0605a}.net.upd{background:#d9a441;animation:netp 1s ease-in-out infinite}
+@keyframes netp{50%{opacity:.25}}
