@@ -904,6 +904,7 @@ function provForm(p = {}) {
     ${f('contacto', 'Persona de contacto')}<div class="two">${f('tel', 'Teléfono', 'type="tel"')}${f('email', 'Email', 'type="email"')}</div>
     ${f('web', 'Web o Instagram')}
     <label class="f"><span>Notas</span><textarea name="notas">${esc(p.notas || '')}</textarea></label>
+    <p class="hint" style="text-align:center">Después de guardar, abre su ficha para añadir sus tarifas y dosieres.</p>
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
   $('#pf', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); Object.keys(f).forEach(k => f[k] = f[k].trim());
@@ -938,6 +939,14 @@ function tarifaForm(provId, t = {}) {
     <label class="f"><span>Concepto</span><input name="concepto" required value="${esc(t.concepto || '')}" placeholder="Ej.: Pack boda completo 2027"></label>
     <label class="f"><span>Notas</span><textarea name="nota">${esc(t.nota || '')}</textarea></label>
     <label class="f"><span>Enlace (Drive u otro)</span><input name="enlace" value="${esc(t.enlace || '')}" placeholder="https://drive.google.com/…"></label>
+    <details class="hint" style="margin:-4px 0 12px"><summary style="cursor:pointer;text-align:center">¿Cómo consigo el enlace de Drive?</summary>
+      <div style="text-align:left;margin-top:8px">
+        <b>1. Sube el dosier a Drive</b> (si aún no está): abre la app Google Drive, pulsa <b>+</b>, luego <b>Subir</b> y elige el archivo.<br>
+        <b>2. Copia el enlace:</b> junto al archivo pulsa los <b>tres puntos ⋮</b> y elige <b>Copiar enlace</b>.<br>
+        <b>3. Pégalo aquí:</b> toca el campo «Enlace», mantén pulsado y elige <b>Pegar</b>.<br>
+        <b>Permisos:</b> si Andrea y Martin abrís Drive con la misma cuenta de Google, no hay que cambiar nada. Si usáis cuentas distintas, antes de copiar el enlace pulsa <b>Compartir</b> y en «Acceso general» elige <b>Cualquier persona con el enlace</b> (solo lector).<br>
+        Después, en la ficha, el enlace aparece como botón para abrir el documento cuando lo necesites.
+      </div></details>
     <div class="center"><div id="afile" class="hint">${archivo ? 'Archivo: ' + esc(archivo.nombre) : 'Sin archivo'}</div>
     <div class="btns" style="margin-top:0"><label class="btn ghost sm" style="cursor:pointer">Adjuntar dossier o tarifa (máx. 500 KB)<input type="file" id="afi" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" hidden></label><button class="btn danger sm" type="button" id="arm" style="display:${archivo ? 'inline-flex' : 'none'}">Quitar archivo</button></div></div>
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
