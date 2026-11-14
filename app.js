@@ -914,7 +914,8 @@ function provForm(p = {}) {
 }
 function tarifaHTML(t) {
   const arch = t.archivo ? `<button class="btn ghost sm" data-act="openArch" data-id="${t.id}">Abrir ${esc(t.archivo.nombre)}</button>` : '';
-  const enl = t.enlace ? `<a class="btn ghost sm" href="${esc(webUrl(t.enlace))}" target="_blank" rel="noopener">Abrir enlace</a>` : '';
+  const did = t.driveId || ((t.enlace || '').match(/\/d\/([\w-]{10,})/) || [])[1] || '';
+  const enl = t.enlace ? (did ? `<button class="btn ghost sm" data-act="verDrive" data-id="${t.id}">Ver dosier aquí</button><a class="btn ghost sm" href="${esc(webUrl(t.enlace))}" target="_blank" rel="noopener">Abrir en Drive</a>` : `<a class="btn ghost sm" href="${esc(webUrl(t.enlace))}" target="_blank" rel="noopener">Abrir enlace</a>`) : '';
   return `<div class="card"><div class="kv"><span>${esc(fmtDate(t.fecha))}</span><span><b>${t.importe != null && t.importe !== '' ? esc(fmtMoney(+t.importe)) : '—'}</b></span></div>
     <div style="margin:4px 0">${esc(t.concepto || '')}</div>${t.nota ? `<div class="hint" style="text-align:left;white-space:pre-wrap">${esc(t.nota)}</div>` : ''}
     <div class="btns" style="margin:8px 0 0;justify-content:flex-start">${arch}${enl}<button class="btn ghost sm" data-act="editTarifa" data-id="${t.id}">Editar</button><button class="btn danger sm" data-act="delTarifa" data-id="${t.id}">Borrar</button></div></div>`;
@@ -932,7 +933,7 @@ function viewProveedor(v, id) {
     <div class="btns"><button class="btn sm" data-act="newTarifa" data-id="${id}">+ Añadir tarifa</button></div>`;
 }
 function tarifaForm(provId, t = {}) {
-  let archivo = t.archivo || null;
+  let archivo = t.archivo || null, driveId = t.driveId || '';
   const s = openSheet(`<h3>${t.id ? 'Editar' : 'Nueva'} tarifa</h3><form id="tff">
     <div class="two"><label class="f"><span>Fecha</span><input type="date" name="fecha" value="${esc(t.fecha || todayISO())}" required></label>
     <label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${t.importe != null && t.importe !== '' ? esc(String(t.importe).replace('.', ',')) : ''}" placeholder="1.500"></label></div>
@@ -954,7 +955,7 @@ function tarifaForm(provId, t = {}) {
     const f = e.target.files[0]; if (!f) return; e.target.value = '';
     if (!navigator.onLine) return toast('Sin conexión: súbelo cuando tengas internet');
     const st = $('#afile', s); st.textContent = 'Subiendo «' + f.name + '» a Drive…';
-    try { const r = await Drive.upload(f); $('input[name=enlace]', s).value = r.webViewLink; st.textContent = 'Subido a Drive: ' + f.name + ' (el enlace ya está puesto; pulsa Guardar)'; toast('Subido a Drive'); }
+    try { const r = await Drive.upload(f); $('input[name=enlace]', s).value = r.webViewLink; driveId = r.id; st.textContent = 'Subido a Drive: ' + f.name + ' (el enlace ya está puesto; pulsa Guardar)'; toast('Subido a Drive'); }
     catch (x) { st.textContent = 'No se pudo subir: ' + x.message; toast('No se pudo subir a Drive'); }
   };
   $('#afi', s).onchange = e => {
@@ -965,7 +966,7 @@ function tarifaForm(provId, t = {}) {
   $('#arm', s).onclick = () => { archivo = null; $('#afile', s).textContent = 'Sin archivo'; $('#arm', s).style.display = 'none'; $('#afi', s).value = ''; };
   $('#tff', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
-    const rec = { fecha: f.fecha, concepto: f.concepto.trim(), importe: parseImporte(f.importe), nota: f.nota.trim(), enlace: f.enlace.trim(), archivo };
+    const rec = { fecha: f.fecha, concepto: f.concepto.trim(), importe: parseImporte(f.importe), nota: f.nota.trim(), enlace: f.enlace.trim(), driveId: f.enlace.trim() && driveId && f.enlace.includes(driveId) ? driveId : '', archivo };
     if (t.id) Object.assign(db.tarifas.find(x => x.id === t.id), rec); else db.tarifas.push({ id: uid(), provId, creada: new Date().toISOString(), ...rec });
     log((t.id ? 'Editó' : 'Añadió') + ' una tarifa de «' + (provById(provId)?.nombre || '') + '»'); save(); closeSheet(); refresh();
   });
@@ -984,6 +985,23 @@ Object.assign(actions, {
   delProv: id => { const p = provById(id); if (!confirm('¿Eliminar este proveedor con todas sus tarifas?')) return; log('Eliminó el proveedor «' + p.nombre + '»'); db.proveedores = db.proveedores.filter(x => x.id !== id); db.tarifas = db.tarifas.filter(t => t.provId !== id); save(); location.hash = '#proveedores'; },
   newTarifa: id => tarifaForm(id), editTarifa: id => { const t = db.tarifas.find(x => x.id === id); tarifaForm(t.provId, t); },
   delTarifa: id => { if (!confirm('¿Borrar esta tarifa?')) return; log('Borró una tarifa'); db.tarifas = db.tarifas.filter(t => t.id !== id); save(); refresh(); },
+  verDrive: async id => {
+    const t = db.tarifas.find(x => x.id === id); if (!t) return;
+    const did = t.driveId || ((t.enlace || '').match(/\/d\/([\w-]{10,})/) || [])[1]; if (!did) return;
+    if (!navigator.onLine) return toast('Sin conexión: no se puede abrir ahora');
+    toast('Abriendo dosier…'); Net.set(true);
+    try {
+      const r = await Drive.api('https://www.googleapis.com/drive/v3/files/' + did + '?alt=media');
+      const blob = await r.blob(), url = URL.createObjectURL(blob), tipo = blob.type || '';
+      if (!/pdf|image/.test(tipo)) { downloadBlob(blob, t.concepto || 'dosier'); return toast('Este tipo de archivo se descarga para abrirlo'); }
+      const o = document.createElement('div'); o.className = 'viewer';
+      o.innerHTML = `<div class="vbar"><b>${esc(t.concepto || 'Dosier')}</b><span><button class="btn ghost sm" id="vfull">Pantalla completa</button> <button class="btn sm" id="vx">Cerrar</button></span></div>` + (/pdf/.test(tipo) ? `<iframe src="${url}"></iframe>` : `<div class="vimg"><img src="${url}"></div>`);
+      document.body.appendChild(o);
+      o.querySelector('#vx').onclick = () => { o.remove(); URL.revokeObjectURL(url); };
+      o.querySelector('#vfull').onclick = () => { if (!window.open(url, '_blank')) downloadBlob(blob, t.concepto || 'dosier'); };
+    } catch (x) { toast(x.message.includes('404') ? 'Ese archivo no lo creó la app con esta cuenta: usa «Abrir en Drive»' : x.message); }
+    finally { Net.set(false); }
+  },
   openArch: id => {
     const t = db.tarifas.find(x => x.id === id); if (!t?.archivo) return;
     const bin = atob(t.archivo.data.split(',')[1]), u8 = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);

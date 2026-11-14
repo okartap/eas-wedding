@@ -144,3 +144,8 @@ input[type=date],input[type=time]{min-height:48px;text-align:center;display:bloc
 .net{position:fixed;top:calc(env(safe-area-inset-top,0px) + 6px);right:8px;width:9px;height:9px;border-radius:50%;z-index:60;opacity:.85;cursor:pointer;box-shadow:0 0 0 3px transparent;transition:background .3s}
 .net.on{background:#6aa384}.net.off{background:#c0605a}.net.upd{background:#d9a441;animation:netp 1s ease-in-out infinite}
 @keyframes netp{50%{opacity:.25}}
+
+.viewer{position:fixed;inset:0;z-index:80;background:var(--bg,#fff);display:flex;flex-direction:column}
+.vbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top,0px) + 10px) 12px 10px;border-bottom:1px solid #0001}
+.vbar b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+.viewer iframe{flex:1;border:0;width:100%}.vimg{flex:1;overflow:auto;text-align:center}.vimg img{max-width:100%}
