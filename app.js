@@ -374,6 +374,7 @@ const ACOMP2 = [['Precio novia (€)', 'Nº de novias', 'novia'], ['Precio acomp
 const PERSONA_CFG = { Restaurante: MENU2, Catering: MENU2, Recena: MENU2, Maquilladora: ACOMP2, Peluquera: ACOMP2 };
 const PERSONA = Object.keys(PERSONA_CFG);
 const MODO = ['Finca', 'Mesa dulce'];
+const MANUAL = ['Restaurante']; // el importe del menú se escribe a mano, sin elegir tarifas
 const IVA_PCT = 21;
 const ivaTxt = x => (x && x.mas ? ' + IVA ' + IVA_PCT + ' %' : '');
 const numP = v => { if (typeof v === 'number') return isFinite(v) ? v : 0; const n = parseFloat(String(v ?? '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? 0 : n; };
@@ -416,16 +417,17 @@ function provBodaForm(bid, i, opt = {}) {
   const cat = PROV_CAT[c], catOk = cat && cats().some(k => k === cat);
   const sel0 = opt.prov || x.provId || (x.nombre ? '__cur' : '');
   const optHTML = p => `<option value="${p.id}">${esc(p.nombre)}${p.ciudad ? ' · ' + esc(p.ciudad) : ''}</option>`;
-  const persona0 = PERSONA.includes(c), conModo = MODO.includes(c), cf = PERSONA_CFG[c];
+  const manual = MANUAL.includes(c), persona0 = PERSONA.includes(c), conModo = MODO.includes(c), cf = PERSONA_CFG[c];
   let modo = conModo && x.modo === 'persona' ? 'persona' : 'total';
   const persona = () => persona0 || (conModo && modo === 'persona');
   const KEYS = persona0 ? [['pAd', cf[0][0], 'nAd', cf[0][1]], ['pNi', cf[1][0], 'nNi', cf[1][1]]] : (conModo ? [['importe', 'Tarifa o importe', null, null, 'total'], ['pAd', 'Precio por persona', 'nAd', 'Nº de personas', 'persona']] : [['importe', 'Tarifa o importe', null, null]]);
   const act = () => KEYS.filter(k => !k[4] || k[4] === modo);
-  const initT = {}; KEYS.forEach(([k]) => { initT[k] = x[k + 'T'] || (x[k] ? '__otro' : ''); });
-  const ctl = ([k, label, nk, nlabel, m]) => `<div class="pc" ${m ? 'data-m="' + m + '" style="display:' + (m === modo ? '' : 'none') + '"' : ''}><label class="f"><span>${esc(label)}</span><select name="s_${k}" data-k="${k}"></select></label>
+  const initT = {}; KEYS.forEach(([k]) => { initT[k] = manual ? '__otro' : (x[k + 'T'] || (x[k] ? '__otro' : '')); });
+  let mLink = x.menuLink || '', mId = x.menuId || '', mNom = x.menuNombre || '';
+  const ctl = ([k, label, nk, nlabel, m]) => `<div class="pc" ${m ? 'data-m="' + m + '" style="display:' + (m === modo ? '' : 'none') + '"' : ''}><label class="f" ${manual ? 'style="display:none"' : ''}><span>${esc(label)}</span><select name="s_${k}" data-k="${k}"></select></label>
       <p class="hint" style="text-align:center;margin:-4px 0 8px" data-i="${k}"></p>
-      <div data-o="${k}" style="display:none"><label class="f"><span>Importe (€)</span><input name="v_${k}" inputmode="decimal" value="${esc(initT[k] === '__otro' ? String(x[k] ?? '').replace('.', ',') : '')}"></label>
-      <label class="f"><span>Menú o descripción completa</span><textarea name="d_${k}">${esc(initT[k] === '__otro' ? (x[k + 'D'] || '') : '')}</textarea></label></div>
+      <div data-o="${k}" style="display:none"><label class="f"><span>${manual ? esc(label) : 'Importe (€)'}</span><input name="v_${k}" inputmode="decimal" value="${esc(initT[k] === '__otro' ? String(x[k] ?? '').replace('.', ',') : '')}"></label>
+      <label class="f" ${manual ? 'style="display:none"' : ''}><span>Menú o descripción completa</span><textarea name="d_${k}">${esc(initT[k] === '__otro' ? (x[k + 'D'] || '') : '')}</textarea></label></div>
       ${nk ? `<label class="f"><span>${esc(nlabel)}</span><input name="${nk}" inputmode="numeric" value="${esc(x[nk] || (conModo ? (b.invitados || '') : ''))}"></label>` : ''}</div>`;
   const s = openSheet(`<h3>${esc(c)}</h3>
     <form id="pbf" novalidate>
@@ -434,6 +436,9 @@ function provBodaForm(bid, i, opt = {}) {
       <label class="f"><span>Teléfono o contacto</span><input name="tel" value="${esc(x.tel || '')}"></label>
       ${conModo ? `<label class="f"><span>Cómo se cobra</span><select name="modo"><option value="total">Importe total</option><option value="persona">Por persona</option></select></label>` : ''}
       ${KEYS.map(ctl).join('')}
+      ${manual ? `<label class="f"><span>Menú completo (opcional)</span><textarea name="menu" placeholder="Aperitivos, entrantes, principal, postre, bebidas…">${esc(x.menu || '')}</textarea></label>
+      <div class="center"><div id="mst" class="hint">${mNom ? 'Foto del menú: ' + esc(mNom) : 'Sin foto del menú'}</div>
+      <div class="btns" style="margin-top:0"><button class="btn sm" type="button" id="mconn" style="display:${Drive.valid() ? 'none' : 'inline-flex'}">Conectar con Google</button><label class="btn sm" id="mlab" style="cursor:pointer;display:${Drive.valid() ? 'inline-flex' : 'none'}">Hacer o elegir foto del menú<input type="file" id="mfi" accept="image/*" style="display:none"></label><a class="btn ghost sm" id="mver" target="_blank" rel="noopener" style="display:${mLink ? 'inline-flex' : 'none'}" href="${esc(mLink)}">Ver foto en Drive</a></div></div>` : ''}
       ${persona0 ? `<label class="f"><span>Otros importes (€, opcional)</span><input name="extra" inputmode="decimal" value="${esc(x.extra || '')}" placeholder="Alquiler de sala, extras…"></label>` : ''}
       <label style="display:flex;justify-content:center;align-items:center;gap:8px;margin:4px 0 10px;font-size:14px"><input type="checkbox" name="mas" ${x.mas ? 'checked' : ''}> El importe es sin IVA (sumar el ${IVA_PCT} %)</label>
       <p class="hint" style="text-align:center;margin:0 0 10px" id="ptot"></p>
@@ -451,7 +456,7 @@ function provBodaForm(bid, i, opt = {}) {
   const paintPrice = k => {
     const el = form.elements['s_' + k], pv = curProv(), tf = pv ? tarifasDe(pv.id) : [], keep = el.value || initT[k];
     el.innerHTML = '<option value="">Elegir tarifa o menú…</option>' + tf.map(t => `<option value="t:${t.id}">${esc(t.concepto || 'Tarifa')}${t.importe != null && t.importe !== '' ? ' · ' + esc(fmtMoney(numP(t.importe))) : ''}</option>`).join('') + '<option value="__otro">＋ Otro importe, solo para esta boda…</option>';
-    el.value = [...el.options].some(o => o.value === keep) ? keep : (tf.length ? '' : '__otro');
+    el.value = manual ? '__otro' : ([...el.options].some(o => o.value === keep) ? keep : (tf.length ? '' : '__otro'));
     const t = tarifaOf(el.value);
     $(`[data-o="${k}"]`, s).style.display = el.value === '__otro' ? '' : 'none';
     $(`[data-i="${k}"]`, s).innerHTML = t ? (t.nota ? esc(t.nota).replace(/\n/g, '<br>') : '') : el.value === '__otro' ? (pv ? (tf.length ? '' : 'Este proveedor no tiene tarifas guardadas: puedes apuntarlas en su ficha de Proveedores.') : 'Elige primero el proveedor para ver sus tarifas.') : '';
@@ -474,6 +479,21 @@ function provBodaForm(bid, i, opt = {}) {
       : (n ? '' : 'Aún no tienes proveedores de «' + esc(cat) + '». ') + 'Se muestran los de «' + esc(cat) + '». <u data-k="all" style="cursor:pointer">Ver todas las categorías</u>';
   };
   fill(); paintAll();
+  if (manual) {
+    Drive.loadGIS().catch(() => { });
+    $('#mconn', s).onclick = () => Drive.auth().then(() => { $('#mconn', s).style.display = 'none'; $('#mlab', s).style.display = 'inline-flex'; $('#mst', s).textContent = 'Conectado con Google: ya puedes subir la foto'; }).catch(e => { $('#mst', s).textContent = e.message; toast(e.message); });
+    $('#mfi', s).onchange = async e => {
+      const f = e.target.files[0]; if (!f) return; e.target.value = '';
+      if (!navigator.onLine) return toast('Sin conexión: sube la foto cuando tengas internet');
+      const st = $('#mst', s); st.textContent = 'Subiendo la foto a Drive…';
+      try {
+        const nm = 'Menú ' + c + ' · ' + coupleName(b) + ' · ' + todayISO() + '.' + ((f.name.match(/\.(\w+)$/) || [])[1] || 'jpg');
+        const r = await Drive.upload(new File([f], nm, { type: f.type || 'image/jpeg' }));
+        mLink = r.webViewLink; mId = r.id; mNom = nm; $('#mver', s).href = mLink; $('#mver', s).style.display = 'inline-flex';
+        st.textContent = 'Foto subida a Drive (pulsa Guardar para quedarte con ella)'; toast('Foto subida a Drive');
+      } catch (x) { st.textContent = 'No se pudo subir: ' + x.message; toast('No se pudo subir a Drive'); if (!Drive.valid()) { $('#mconn', s).style.display = 'inline-flex'; $('#mlab', s).style.display = 'none'; } }
+    };
+  }
   hint.addEventListener('click', e => { const k = e.target.dataset.k; if (!k) return; all = k === 'all'; prev = sel.value; fill(); paintAll(); });
   sel.addEventListener('change', () => {
     if (sel.value === '__new') {
@@ -512,7 +532,7 @@ function provBodaForm(bid, i, opt = {}) {
     if (persona0) { if (f.extra && (isNaN(parseFloat(f.extra.replace(/\./g, '').replace(',', '.'))) || numP(f.extra) < 0)) { toast('Revisa «Otros importes»: no es un número válido. No se ha marcado'); e.target.extra.focus(); return; } out.extra = f.extra; }
     const base = calcP(f), imp = calcT(f);
     if (f.tel && f.tel.replace(/\D/g, '').length < 6 && /^[\d\s+()-]+$/.test(f.tel)) { toast('El teléfono parece incompleto: no se ha marcado'); e.target.tel.focus(); return; }
-    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, notas: f.notas, ...out, modo: conModo ? modo : undefined, mas: !!f.mas, base, importe: imp };
+    b.provs[c] = { on: true, provId: pr ? pr.id : '', nombre, tel: f.tel, notas: f.notas, ...out, modo: conModo ? modo : undefined, mas: !!f.mas, ...(manual ? { menu: f.menu, menuLink: mLink, menuId: mId, menuNombre: mNom } : {}), base, importe: imp };
     log('Marcó «' + c + '» como contratado en la boda de ' + coupleName(b) + ' (' + nombre + ')'); save(); closeSheet(); bodaProvOpen = true; refresh(); toast(c + ' marcado como contratado');
   });
   const q = $('#pquit', s);
