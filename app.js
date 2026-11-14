@@ -214,7 +214,7 @@ function viewInicio(v) {
   } else body = calendarHTML();
 
   v.innerHTML = `
-    <p class="sub" style="margin-top:6px">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</p>
+    <div class="hdr"><img class="hlogo" src="icons/logo-hdr.png" alt=""><div class="htx"><div class="hn">Ea’s Wedding</div><div class="hd">${esc(fmtDate(t, { weekday: 'long', day: 'numeric', month: 'long' }))}</div></div><span></span></div><div class="hsp"></div>
     <form class="quick" id="qa"><input id="qai" placeholder="Ej.: viernes 17:00 reunión" autocomplete="off" enterkeyhint="done"><button class="btn sm" type="submit">Añadir</button></form>
     ${pendBanner()}
     <div class="seg"><button class="${agendaMode === 'lista' ? 'on' : ''}" data-act="agendaMode" data-id="lista">Lista</button><button class="${agendaMode === 'mes' ? 'on' : ''}" data-act="agendaMode" data-id="mes">Mes</button></div>
@@ -558,24 +558,53 @@ function bodaForm(b = {}) {
     <label class="f"><span>Servicio contratado</span><select name="servicio">${Object.keys(SERVICIOS).map(e => `<option ${((b.servicio || SERV_DEF) === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Estado</span><select name="estado">${ESTADOS.map(e => `<option ${((b.estado || 'Consulta') === e) ? 'selected' : ''}>${e}</option>`).join('')}</select></label>
     <label class="f"><span>Notas</span><textarea name="notas">${esc(b.notas || '')}</textarea></label>
-    ${b.id ? '' : `<label class="check"><input type="checkbox" name="hitos" checked> Crear calendario de hitos automático (según el servicio, si hay fecha)</label>`}
     <div class="btns"><button class="btn" type="submit">Guardar</button><button class="btn ghost" type="button" data-act="closeSheet">Cancelar</button></div></form>`);
   $('#bf', s).addEventListener('submit', e => {
-    e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)); const hitos = f.hitos; delete f.hitos;
+    e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
     f.provs = {}; PROV_BODA.forEach((c, i) => { const on = f['pv' + i] === 'on', nombre = (f['pn' + i] || '').trim(); const pv = (b.provs || {})[c] || {}; if (on || nombre) { const np = { ...pv, on: on || !!nombre, nombre }; if (np.provId && (provById(np.provId) || {}).nombre !== nombre) np.provId = ''; f.provs[c] = np; } else if (pv.tel || pv.importe || pv.notas) f.provs[c] = { ...pv, on: false, nombre: '' }; delete f['pv' + i]; delete f['pn' + i]; });
-    let rec;
+    let rec, nuevaBoda = null;
     if (b.id) { rec = db.bodas.find(x => x.id === b.id); Object.assign(rec, f); }
-    else { rec = { id: uid(), ...f }; db.bodas.push(rec); if (hitos && rec.fecha) crearHitos(rec); }
+    else { rec = { id: uid(), ...f }; db.bodas.push(rec); nuevaBoda = rec; }
     log((b.id ? 'Editó' : 'Creó') + ' la boda de ' + coupleName(rec)); save(); closeSheet(); location.hash = '#boda/' + rec.id; refresh();
+    if (nuevaBoda) { setTimeout(() => hitosSheet(rec), 250); }
   });
 }
-function crearHitos(b) {
+function hitoList(b) {
   const t = todayISO();
-  (SERVICIOS[b.servicio] || SERVICIOS[SERV_DEF]).hitos.forEach(([w, titulo]) => {
+  return (SERVICIOS[b.servicio] || SERVICIOS[SERV_DEF]).hitos.map(([w, titulo]) => {
     let f = typeof w === 'number' ? addMonths(b.fecha, w) : addDays(b.fecha, parseInt(w.slice(1), 10));
     if (f < t) f = t;
-    const tipo = /^Reuni/i.test(titulo) ? 'cita' : /visit|prueba|revisi[óo]n del espacio/i.test(titulo) ? 'visita' : 'tarea'; 
-    db.tareas.push({ id: uid(), titulo, fecha: f, hora: '', tipo, asignado: 'Ambos', bodaId: b.id, hecha: false, notas: '' });
+    const tipo = /^Reuni/i.test(titulo) ? 'cita' : /visit|prueba|revisi[óo]n del espacio/i.test(titulo) ? 'visita' : 'tarea';
+    return { titulo, fecha: f, tipo };
+  });
+}
+function crearHitos(b, lista) {
+  (lista || hitoList(b)).forEach(h => db.tareas.push({ id: uid(), titulo: h.titulo, fecha: h.fecha, hora: '', tipo: h.tipo || 'tarea', asignado: 'Ambos', bodaId: b.id, hecha: false, notas: '' }));
+}
+// Hoja para elegir qué hitos se añaden a la boda (ninguno viene marcado) y con qué fecha.
+function hitosSheet(b) {
+  if (!b.fecha) { toast('Pon primero la fecha de la boda para proponer fechas'); return; }
+  const ya = new Set(db.tareas.filter(t => t.bodaId === b.id).map(t => fold(t.titulo)));
+  const L = hitoList(b);
+  const row = (h, i) => { const dup = ya.has(fold(h.titulo)); return `<div class="pv" style="${dup ? 'opacity:.5' : ''}"><label class="check" style="flex:1"><input type="checkbox" name="h${i}" ${dup ? 'disabled' : ''}> ${esc(h.titulo)}${dup ? ' <span class="muted">(ya está)</span>' : ''}</label><input type="date" name="d${i}" value="${esc(h.fecha)}" style="max-width:150px" ${dup ? 'disabled' : ''}></div>`; };
+  const s = openSheet(`<h3>Hitos de la boda</h3>
+    <p class="hint" style="text-align:center">Marca los que queréis usar. La fecha es una propuesta calculada desde el día de la boda: se puede cambiar aquí o después en cada tarea.</p>
+    <form id="hsf" novalidate>
+      <div class="btns" style="margin:0 0 8px;justify-content:center"><button class="btn ghost sm" type="button" id="hall">Marcar todos</button><button class="btn ghost sm" type="button" id="hnone">Quitar todos</button></div>
+      ${L.map(row).join('')}
+      <div class="hint" style="text-align:center;margin:12px 0 2px">¿Falta alguno? Añade uno propio</div>
+      <div class="pv"><input name="xt" placeholder="Nombre del hito" style="flex:1"><input type="date" name="xd" value="${esc(b.fecha)}" style="max-width:150px"></div>
+      <div class="btns"><button class="btn" type="submit">Añadir los marcados</button><button class="btn ghost" type="button" data-act="closeSheet">Cerrar</button></div>
+    </form>`);
+  const boxes = () => [...s.querySelectorAll('input[type=checkbox]:not(:disabled)')];
+  $('#hall', s).onclick = () => boxes().forEach(x => x.checked = true);
+  $('#hnone', s).onclick = () => boxes().forEach(x => x.checked = false);
+  $('#hsf', s).addEventListener('submit', e => {
+    e.preventDefault(); const f = Object.fromEntries(new FormData(e.target)), sel = [];
+    L.forEach((h, i) => { if (f['h' + i] === 'on') sel.push({ ...h, fecha: f['d' + i] || h.fecha }); });
+    if ((f.xt || '').trim()) sel.push({ titulo: f.xt.trim(), fecha: f.xd || b.fecha, tipo: 'tarea' });
+    if (!sel.length) { toast('No has marcado ningún hito'); return; }
+    crearHitos(b, sel); log('Añadió ' + sel.length + ' hito' + (sel.length === 1 ? '' : 's') + ' a la boda de ' + coupleName(b)); save(); closeSheet(); toast(sel.length + ' hito' + (sel.length === 1 ? '' : 's') + ' añadido' + (sel.length === 1 ? '' : 's')); refresh();
   });
 }
 function viewBoda(v, id) {
@@ -595,7 +624,7 @@ function viewBoda(v, id) {
     <div class="btns"><a class="btn sm" href="#contrato/nuevo/${id}">+ Nuevo contrato</a></div>
     <h2>Diario</h2>${diarioHTML(id)}
     <h2>Tareas</h2>${ts.length ? ts.map(t => rowHTML({ ...t, kind: 't', bodaId: null })).join('') : '<div class="empty" style="padding:10px">Sin tareas</div>'}
-    <div class="btns"><button class="btn sm ghost" data-act="newTaskBoda" data-id="${id}">+ Tarea</button>${b.fecha ? `<button class="btn sm ghost" data-act="hitosBoda" data-id="${id}">Añadir hitos automáticos</button>` : ''}</div>`;
+    <div class="btns"><button class="btn sm ghost" data-act="newTaskBoda" data-id="${id}">+ Tarea</button><button class="btn sm ghost" data-act="hitosBoda" data-id="${id}">Elegir hitos</button></div>`;
 }
 
 /* ---------- CONTRATOS ---------- */
@@ -897,7 +926,7 @@ const actions = {
     db.tareas.push({ id: uid(), titulo: 'Llamar a Laura y Carlos (ejemplo)', fecha: addDays(todayISO(), 2), hora: '10:30', tipo: 'cita', asignado: 'Andrea', bodaId: rec.id, hecha: false, notas: '' });
     log('Creó la boda de ejemplo'); save(); toast('Boda de ejemplo creada'); location.hash = '#boda/' + rec.id;
   },
-  hitosBoda: id => { crearHitos(bodaById(id)); save(); toast('Hitos añadidos'); refresh(); },
+  hitosBoda: id => hitosSheet(bodaById(id)),
   cMode: id => { cMode = id; refresh(); }, newContrato: pickBoda, goNuevoContrato: id => { closeSheet(); location.hash = '#contrato/nuevo/' + id; },
   openContrato: id => { location.hash = '#contrato/' + id; },
   regen: () => { if (ce.dirty && !confirm('Se perderán tus ediciones manuales del texto. ¿Continuar?')) return; ce.dirty = false; syncText(); },

@@ -22,6 +22,8 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
 - El PIN sirve para saber quién es cada uno. La protección real de los datos será el correo y la contraseña compartidos de la sincronización.
 
 ## 3. Agenda (pantalla de Inicio)
+
+- **Cabecera fija**: arriba de Inicio queda siempre a la vista el logo a la izquierda y, centrados, «Ea’s Wedding» y la fecha de hoy. El sol/luna y el punto verde siguen en las esquinas.
 - **Añadido rápido**: escribir en la barra una frase natural y pulsar Añadir. Ejemplos: «viernes 17:00 reunión con Laura», «lunes 16 llamar a la florista», «mañana a las 5 de la tarde prueba de menú».
 - Se abre una pantalla de confirmación con **qué, día, hora y tipo** (Tarea, Reunión/cita, Llamada, Visita/prueba, Pago/cobro). Todo se puede cambiar tocando el campo.
 - Sin hora, la cita es de todo el día.
@@ -56,7 +58,7 @@ Documento vivo: se amplía cada vez que se añade algo a la app. Cuando Patry lo
   - **Importe por personas**: en **Restaurante, Catering y Recena** se elige el **menú de adultos y el de niños** (cada uno de las tarifas del proveedor o uno nuevo para esa boda) y se apunta el **número de adultos y de niños**; la app calcula el total sola, y hay un campo opcional «Otros importes» (alquiler de sala, extras). En **Maquilladora y Peluquera** se elige el precio de la novia y el de las acompañantes, con su número. El resto de proveedores llevan un único importe.
   - Pulsar uno contratado permite **editar sus datos** o **«Quitar como contratado»** (pide confirmación y conserva los datos).
 - **Total contratado**: encima de la lista de proveedores sale **«Total contratado · X €»**, con la suma de los importes de los proveedores contratados. Al pulsarlo se despliega el **importe de cada uno** (en Restaurante, Catering, Recena, Maquilladora y Peluquera, con el desglose por personas). La suma usa los importes tal como se escribieron: conviene apuntarlos todos con IVA o todos sin IVA.
-- Los hitos de cada servicio se crean solos (20 para Integral, 8 para Día B) y aparecen en la agenda. Las reuniones y visitas de esos hitos ya vienen con su tipo (Reunión/cita o Visita/prueba).
+- **Hitos**: al crear una boda con fecha se abre solo la hoja **«Hitos de la boda»**: una lista con casilla (ninguna viene marcada) y una **fecha propuesta** calculada desde el día de la boda, que se puede cambiar en la propia hoja. Se marcan los que se quieren y se pulsa **«Añadir los marcados»**; también se puede escribir un hito propio. Más adelante, en la ficha de la boda, el botón **«Elegir hitos»** vuelve a abrir la lista (los que ya están salen apagados, «ya está»). Cada hito se convierte en una tarea que se puede **editar o borrar** cuando se quiera. Las reuniones y visitas de esos hitos ya vienen con su tipo (Reunión/cita o Visita/prueba). La lista actual es provisional: se sustituirá por la definitiva de Andrea y Martin.
 - Botón **«Crear boda de ejemplo»** en Ajustes para practicar; se borra como cualquier boda.
 
 ## 6. Diario (lo hecho, visto o decidido)
