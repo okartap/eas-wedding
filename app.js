@@ -934,7 +934,7 @@ function viewProveedor(v, id) {
 }
 function tarifaForm(provId, t = {}) {
   let archivo = t.archivo || null, driveId = t.driveId || '';
-  const s = openSheet(`<h3>${t.id ? 'Editar' : 'Nueva'} tarifa</h3><form id="tff">
+  const s = openSheet(`<h3>${t.id ? 'Editar' : 'Nueva'} tarifa</h3><form id="tff" novalidate>
     <div class="two"><label class="f"><span>Fecha</span><input type="date" name="fecha" value="${esc(t.fecha || todayISO())}" required></label>
     <label class="f"><span>Importe (€)</span><input name="importe" inputmode="decimal" value="${t.importe != null && t.importe !== '' ? esc(String(t.importe).replace('.', ',')) : ''}" placeholder="1.500"></label></div>
     <label class="f"><span>Concepto</span><input name="concepto" required value="${esc(t.concepto || '')}" placeholder="Ej.: Pack boda completo 2027"></label>
@@ -960,7 +960,7 @@ function tarifaForm(provId, t = {}) {
     const f = e.target.files[0]; if (!f) return; e.target.value = '';
     if (!navigator.onLine) return toast('Sin conexión: súbelo cuando tengas internet');
     const st = $('#afile', s); st.textContent = 'Subiendo «' + f.name + '» a Drive…';
-    try { const r = await Drive.upload(f); $('input[name=enlace]', s).value = r.webViewLink; driveId = r.id; st.textContent = 'Subido a Drive: ' + f.name + ' (el enlace ya está puesto; pulsa Guardar)'; toast('Subido a Drive'); }
+    try { const r = await Drive.upload(f); $('input[name=enlace]', s).value = r.webViewLink; driveId = r.id; { const c = $('input[name=concepto]', s); if (!c.value.trim()) c.value = f.name.replace(/\.[^.]+$/, ''); } st.textContent = 'Subido a Drive: ' + f.name + ' (el enlace ya está puesto; pulsa Guardar)'; toast('Subido a Drive'); }
     catch (x) { st.textContent = 'No se pudo subir: ' + x.message; toast('No se pudo subir a Drive'); if (!Drive.valid()) { $('#dconn', s).style.display = 'inline-flex'; $('#dlab', s).style.display = 'none'; } }
   };
   $('#afi', s).onchange = e => {
@@ -971,6 +971,8 @@ function tarifaForm(provId, t = {}) {
   $('#arm', s).onclick = () => { archivo = null; $('#afile', s).textContent = 'Sin archivo'; $('#arm', s).style.display = 'none'; $('#afi', s).value = ''; };
   $('#tff', s).addEventListener('submit', e => {
     e.preventDefault(); const f = Object.fromEntries(new FormData(e.target));
+    if (!f.concepto.trim()) { $('input[name=concepto]', s).focus(); return toast('Falta el concepto: escribe un nombre para la tarifa'); }
+    if (!f.fecha) return toast('Falta la fecha');
     const rec = { fecha: f.fecha, concepto: f.concepto.trim(), importe: parseImporte(f.importe), nota: f.nota.trim(), enlace: f.enlace.trim(), driveId: f.enlace.trim() && driveId && f.enlace.includes(driveId) ? driveId : '', archivo };
     if (t.id) Object.assign(db.tarifas.find(x => x.id === t.id), rec); else db.tarifas.push({ id: uid(), provId, creada: new Date().toISOString(), ...rec });
     log((t.id ? 'Editó' : 'Añadió') + ' una tarifa de «' + (provById(provId)?.nombre || '') + '»'); save(); closeSheet(); refresh();
