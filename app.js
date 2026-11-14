@@ -927,3 +927,8 @@ Object.assign(actions, {
 route();
 Sync.init();
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
+
+// Al volver a la app desde otra (p. ej. Calendario) iOS puede soltar la imagen del logo: se vuelve a cargar.
+function refreshLogo(){ document.querySelectorAll('img.logo').forEach(i => { i.src = LOGO + '?r=' + Date.now(); }); }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshLogo(); });
+window.addEventListener('pageshow', refreshLogo);
